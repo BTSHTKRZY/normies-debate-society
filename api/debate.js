@@ -3,7 +3,7 @@ const https = require('https');
 function callAnthropic(apiKey, systemPrompt, userMessage) {
   return new Promise((resolve, reject) => {
     const payload = JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-5',
       max_tokens: 1000,
       stream: false,
       system: systemPrompt,
