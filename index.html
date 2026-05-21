@@ -272,7 +272,7 @@
   async function startDebate() {
     const topic = document.getElementById('topic-input').value.trim();
     if (!topic) return;
-    state = { topic, forAgents: [], againstAgents: [], votes: { aye: Math.floor(Math.random() * 10), nay: Math.floor(Math.random() * 10) }, voted: false };
+    state = { topic, forAgents: [], againstAgents: [], votes: { aye: 0, nay: 0 }, voted: false };
     showPhase('loading');
     setMsg('Summoning members from the chain...');
     try {
