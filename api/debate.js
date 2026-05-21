@@ -1,21 +1,50 @@
 const https = require('https');
 
-function httpsPost(url, headers, body) {
+function callAnthropic(apiKey, systemPrompt, userMessage) {
   return new Promise((resolve, reject) => {
-    const urlObj = new URL(url);
+    const payload = JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      stream: false,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMessage }]
+    });
+
     const options = {
-      hostname: urlObj.hostname,
-      path: urlObj.pathname,
+      hostname: 'api.anthropic.com',
+      path: '/v1/messages',
       method: 'POST',
-      headers: { ...headers, 'Content-Length': Buffer.byteLength(body) }
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'Content-Length': Buffer.byteLength(payload)
+      }
     };
+
     const req = https.request(options, res => {
       let data = '';
       res.on('data', chunk => data += chunk);
-      res.on('end', () => resolve({ status: res.statusCode, body: data }));
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.error) {
+            reject(new Error(parsed.error.message || 'Anthropic error'));
+          } else {
+            resolve(parsed.content?.[0]?.text || '');
+          }
+        } catch (e) {
+          reject(new Error('Failed to parse response'));
+        }
+      });
     });
+
     req.on('error', reject);
-    req.write(body);
+    req.setTimeout(25000, () => {
+      req.destroy();
+      reject(new Error('Request timed out'));
+    });
+    req.write(payload);
     req.end();
   });
 }
@@ -49,27 +78,9 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const payload = JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1000,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userMessage }]
-    });
-
-    const result = await httpsPost(
-      'https://api.anthropic.com/v1/messages',
-      {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      payload
-    );
-
-    const data = JSON.parse(result.body);
-    const text = data.content?.[0]?.text || '';
+    const text = await callAnthropic(apiKey, systemPrompt, userMessage);
     res.status(200).json({ text });
   } catch (err) {
-    res.status(500).json({ error: 'Claude API call failed', detail: err.message });
+    res.status(500).json({ error: err.message || 'Failed' });
   }
 };
