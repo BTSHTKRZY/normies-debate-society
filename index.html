@@ -549,7 +549,7 @@
     list.innerHTML = '';
     loading.style.display = 'block';
     try {
-      const data = await fetch(ARCHIVE_API).then(r => r.json());
+      const data = await fetch(ARCHIVE_API + '?t=' + Date.now()).then(r => r.json());
       loading.style.display = 'none';
       const debates = data.debates || [];
       if (debates.length === 0) {
