@@ -3,10 +3,22 @@
   "functions": {
     "api/debate.js": {
       "maxDuration": 60
+    },
+    "api/votes.js": {
+      "maxDuration": 10
+    },
+    "api/archive.js": {
+      "maxDuration": 10
+    },
+    "api/leaderboard.js": {
+      "maxDuration": 10
     }
   },
   "routes": [
     { "src": "/api/debate", "dest": "/api/debate.js" },
+    { "src": "/api/votes", "dest": "/api/votes.js" },
+    { "src": "/api/archive", "dest": "/api/archive.js" },
+    { "src": "/api/leaderboard", "dest": "/api/leaderboard.js" },
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
