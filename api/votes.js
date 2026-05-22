@@ -1,15 +1,15 @@
 const https = require('https');
 
-function kvRequest(method, url, token, body) {
+function kvRequest(method, urlStr, token, body) {
   return new Promise((resolve, reject) => {
-    const urlObj = new URL(url);
+    const urlObj = new URL(urlStr);
     const payload = body ? JSON.stringify(body) : null;
     const options = {
       hostname: urlObj.hostname,
       path: urlObj.pathname + urlObj.search,
       method,
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': 'Bearer ' + token,
         'Content-Type': 'application/json',
         ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {})
       }
@@ -29,19 +29,24 @@ function kvRequest(method, url, token, body) {
 }
 
 async function kvGet(key, url, token) {
-  const result = await kvRequest('GET', `${url}/get/${encodeURIComponent(key)}`, token);
-  return result.result ? JSON.parse(result.result) : null;
+  try {
+    const result = await kvRequest('GET', url + '/get/' + encodeURIComponent(key), token);
+    return result.result ? JSON.parse(result.result) : null;
+  } catch (e) { return null; }
 }
 
 async function kvSet(key, value, url, token) {
-  await kvRequest('POST', `${url}/set/${encodeURIComponent(key)}`,
-    token, { value: JSON.stringify(value) });
+  try {
+    await kvRequest('POST', url + '/set/' + encodeURIComponent(key), token, { value: JSON.stringify(value) });
+  } catch (e) { console.error('kvSet error:', e.message); }
 }
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Cache-Control', 'no-store');
+
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
 
   const kvUrl = process.env.KV_REST_API_URL;
@@ -52,7 +57,7 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const debateId = req.query?.id || (req.body?.id);
+  const debateId = req.query && req.query.id ? req.query.id : (req.body && req.body.id ? req.body.id : null);
 
   if (!debateId) {
     res.status(400).json({ error: 'Missing debate id' });
@@ -60,40 +65,54 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'GET') {
-    const votes = await kvGet(`votes:${debateId}`, kvUrl, kvToken) || { aye: 0, nay: 0 };
+    const votes = await kvGet('votes:' + debateId, kvUrl, kvToken) || { aye: 0, nay: 0 };
     res.status(200).json(votes);
     return;
   }
 
-  if (reconst winTeam = winner === 'aye' ? (debate.forAgents || []) : winner === 'nay' ? (debate.againstAgents || []) : [];
-const loseTeam = winner === 'aye' ? (debate.againstAgents || []) : winner === 'nay' ? (debate.forAgents || []) : [];
-for (const agent of winTeam) {
-{
+  if (req.method === 'POST') {
+    const side = req.body && req.body.side ? req.body.side : null;
+    if (!side || (side !== 'aye' && side !== 'nay')) {
       res.status(400).json({ error: 'Invalid side' });
       return;
     }
-    const votes = await kvGet(`votes:${debateId}`, kvUrl, kvToken) || { aye: 0, nay: 0 };
-    votes[side]++;
-    await kvSet(`votes:${debateId}`, votes, kvUrl, kvToken);
 
-    if (votes.aye + votes.nay >= 1) {
-      const debate = await kvGet(`debate:${debateId}`, kvUrl, kvToken);
+    const votes = await kvGet('votes:' + debateId, kvUrl, kvToken) || { aye: 0, nay: 0 };
+    votes[side]++;
+    await kvSet('votes:' + debateId, votes, kvUrl, kvToken);
+
+    try {
+      const debate = await kvGet('debate:' + debateId, kvUrl, kvToken);
       if (debate) {
+        const total = votes.aye + votes.nay;
         const winner = votes.aye > votes.nay ? 'aye' : votes.nay > votes.aye ? 'nay' : 'tie';
-        const winTeam = winner === 'aye' ? debate.forAgents : winner === 'nay' ? debate.againstAgents : [];
-        const loseTeam = winner === 'aye' ? debate.againstAgents : winner === 'nay' ? debate.forAgents : [];
+        const forAgents = Array.isArray(debate.forAgents) ? debate.forAgents : [];
+        const againstAgents = Array.isArray(debate.againstAgents) ? debate.againstAgents : [];
+        const winTeam = winner === 'aye' ? forAgents : winner === 'nay' ? againstAgents : [];
+        const loseTeam = winner === 'aye' ? againstAgents : winner === 'nay' ? forAgents : [];
+
         for (const agent of winTeam) {
-          const record = await kvGet(`agent:${agent.tokenId}`, kvUrl, kvToken) || { wins: 0, losses: 0, appearances: 0 };
-          record.wins++; record.appearances++;
-          await kvSet(`agent:${agent.tokenId}`, record, kvUrl, kvToken);
+          if (!agent || !agent.tokenId) continue;
+          const record = await kvGet('agent:' + agent.tokenId, kvUrl, kvToken) || { wins: 0, losses: 0, appearances: 0, name: agent.name || '' };
+          record.wins++;
+          record.appearances++;
+          record.name = agent.name || record.name;
+          await kvSet('agent:' + agent.tokenId, record, kvUrl, kvToken);
         }
+
         for (const agent of loseTeam) {
-          const record = await kvGet(`agent:${agent.tokenId}`, kvUrl, kvToken) || { wins: 0, losses: 0, appearances: 0 };
-          record.losses++; record.appearances++;
-          await kvSet(`agent:${agent.tokenId}`, record, kvUrl, kvToken);
+          if (!agent || !agent.tokenId) continue;
+          const record = await kvGet('agent:' + agent.tokenId, kvUrl, kvToken) || { wins: 0, losses: 0, appearances: 0, name: agent.name || '' };
+          record.losses++;
+          record.appearances++;
+          record.name = agent.name || record.name;
+          await kvSet('agent:' + agent.tokenId, record, kvUrl, kvToken);
         }
       }
+    } catch (e) {
+      console.error('Record update error:', e.message);
     }
+
     res.status(200).json(votes);
     return;
   }
