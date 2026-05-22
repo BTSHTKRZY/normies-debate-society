@@ -588,7 +588,7 @@
     content.innerHTML = '';
     loading.style.display = 'block';
     try {
-      const data = await fetch(LB_API).then(r => r.json());
+      const data = await fetch(LB_API + '?t=' + Date.now()).then(r => r.json());
       loading.style.display = 'none';
       const lb = data.leaderboard || [];
       if (lb.length === 0) {
