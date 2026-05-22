@@ -557,21 +557,24 @@
         return;
       }
       debates.forEach(d => {
-        const total = (d.votes?.aye || 0) + (d.votes?.nay || 0);
-        const ayePct = total ? Math.round((d.votes.aye / total) * 100) : 50;
-        const date = d.timestamp ? new Date(d.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+        const aye = d.votes?.aye || 0;
+        const nay = d.votes?.nay || 0;
+        const total = aye + nay;
+        const forNames = Array.isArray(d.forAgents) ? d.forAgents.map(a => a.name || 'Agent').join(', ') : 'Unknown';
+        const againstNames = Array.isArray(d.againstAgents) ? d.againstAgents.map(a => a.name || 'Agent').join(', ') : 'Unknown';
+        const date = d.timestamp ? new Date(d.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recent';
         const card = document.createElement('div');
         card.className = 'archive-card';
         card.innerHTML = `
-          <div class="archive-topic">${d.topic}</div>
+          <div class="archive-topic">${d.topic || 'Untitled debate'}</div>
           <div class="archive-meta">
             <span>${date}</span>
-            <span>${(d.forAgents || []).map(a => a.name).join(', ')} vs ${(d.againstAgents || []).map(a => a.name).join(', ')}</span>
+            <span>${forNames} vs ${againstNames}</span>
           </div>
           <div class="archive-votes" style="margin-top:8px;">
-            <span class="aye-count">${d.votes?.aye || 0} aye</span>
+            <span class="aye-count">${aye} aye</span>
             <span style="color:var(--border-mid)">·</span>
-            <span class="nay-count">${d.votes?.nay || 0} nay</span>
+            <span class="nay-count">${nay} nay</span>
             ${total === 0 ? '<span class="status-live">live</span>' : ''}
           </div>`;
         list.appendChild(card);
@@ -588,7 +591,8 @@
     content.innerHTML = '';
     loading.style.display = 'block';
     try {
-      const data = await fetch(LB_API + '?t=' + Date.now()).then(r => r.json());
+    const data = await fetch(ARCHIVE_API + '?t=' + Date.now()).then(r => r.json());
+    console.log('Archive data:', JSON.stringify(data));
       loading.style.display = 'none';
       const lb = data.leaderboard || [];
       if (lb.length === 0) {
