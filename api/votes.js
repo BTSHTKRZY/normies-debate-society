@@ -65,9 +65,10 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  if (req.method === 'POST') {
-    const { side } = req.body || {};
-    if (!side || !['aye', 'nay'].includes(side)) {
+  if (reconst winTeam = winner === 'aye' ? (debate.forAgents || []) : winner === 'nay' ? (debate.againstAgents || []) : [];
+const loseTeam = winner === 'aye' ? (debate.againstAgents || []) : winner === 'nay' ? (debate.forAgents || []) : [];
+for (const agent of winTeam) {
+{
       res.status(400).json({ error: 'Invalid side' });
       return;
     }
