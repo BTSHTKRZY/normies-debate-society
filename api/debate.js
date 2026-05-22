@@ -96,7 +96,8 @@ module.exports = async function handler(req, res) {
 
   const { systemPrompt, userMessage, saveDebate } = req.body || {};
 
-  if (saveDebate) {
+    if (saveDebate) {
+    console.log('Saving debate:', saveDebate.id);
     const kvUrl = process.env.KV_REST_API_URL;
     const kvToken = process.env.KV_REST_API_TOKEN;
     if (kvUrl && kvToken) {
