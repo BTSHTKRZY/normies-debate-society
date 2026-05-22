@@ -41,9 +41,12 @@ async function kvSet(key, value, url, token) {
 }
 
 async function kvLPush(key, value, url, token) {
-  await kvRequest('POST',
-    `${url}/lpush/${encodeURIComponent(key)}`,
-    token, { value: JSON.stringify(value) });
+  try {
+    const r = await kvRequest('POST',
+      `${url}/lpush/${encodeURIComponent(key)}`,
+      token, [JSON.stringify(value)]);
+    console.log('debate lpush:', JSON.stringify(r));
+  } catch (e) { console.error('lpush error:', e.message); }
 }
 
 function callAnthropic(apiKey, systemPrompt, userMessage) {
