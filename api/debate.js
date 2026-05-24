@@ -35,18 +35,31 @@ async function kvGet(key, url, token) {
 }
 
 async function kvSet(key, value, url, token) {
-  await kvRequest('POST',
-    `${url}/set/${encodeURIComponent(key)}`,
-    token, { value: JSON.stringify(value) });
-}
-
-async function kvLPush(key, value, url, token) {
   try {
-    const r = await kvRequest('POST',
-      `${url}/lpush/${encodeURIComponent(key)}`,
-      token, [JSON.stringify(value)]);
-    console.log('debate lpush:', JSON.stringify(r));
-  } catch (e) { console.error('lpush error:', e.message); }
+    const payload = JSON.stringify([key, JSON.stringify(value)]);
+    await new Promise((resolve, reject) => {
+      const urlObj = new URL(url + '/set/' + encodeURIComponent(key));
+      const body = JSON.stringify([JSON.stringify(value)]);
+      const options = {
+        hostname: urlObj.hostname,
+        path: urlObj.pathname,
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body)
+        }
+      };
+      const req = https.request(options, res => {
+        let d = '';
+        res.on('data', c => d += c);
+        res.on('end', () => { console.log('kvSet result:', d); resolve(); });
+      });
+      req.on('error', reject);
+      req.write(body);
+      req.end();
+    });
+  } catch (e) { console.error('kvSet error:', e.message); }
 }
 
 function callAnthropic(apiKey, systemPrompt, userMessage) {
