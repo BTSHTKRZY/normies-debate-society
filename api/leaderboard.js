@@ -13,6 +13,9 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
 
   try {
+        const timeoutMs = 8000;
+    const deadline = Date.now() + timeoutMs;
+    
     const ids = await redis.lrange('debate:index', 0, 19);
     const agentIds = new Set();
 
@@ -26,6 +29,7 @@ module.exports = async function handler(req, res) {
 
     const leaderboard = [];
     for (const tokenId of agentIds) {
+       if (Date.now() > deadline) break;
       const raw = await redis.get(`agent:${tokenId}`);
       if (!raw) continue;
       const rec = typeof raw === 'string' ? JSON.parse(raw) : raw;
