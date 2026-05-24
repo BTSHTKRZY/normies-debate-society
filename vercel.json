@@ -11,7 +11,7 @@
       "maxDuration": 10
     },
     "api/leaderboard.js": {
-      "maxDuration": 10
+      "maxDuration": 30
     }
   },
   "routes": [
