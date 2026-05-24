@@ -461,18 +461,19 @@
         Promise.all(picked.slice(3, 6).map(a => fetchJSON(`${NORMIES_API}/agents/info/${a.tokenId}`)))
       ]);
 
-      setMsg('Researching the topic across the web...');
+            setMsg('Convening the Society...');
       let researchContext = '';
       try {
-        const researchResp = await fetch(BACKEND, {
+        const researchPromise = fetch(BACKEND, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ researchTopic: topic })
         });
-        const researchData = await researchResp.json();
-        researchContext = researchData.research || '';
-        if (researchContext) {
-          console.log('Research context loaded:', researchContext.slice(0, 100));
+        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 8000));
+        const researchResp = await Promise.race([researchPromise, timeoutPromise]);
+        if (researchResp) {
+          const researchData = await researchResp.json();
+          researchContext = researchData.research || '';
         }
       } catch (e) {
         console.log('Research skipped:', e.message);
