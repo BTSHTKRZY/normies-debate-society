@@ -42,38 +42,44 @@ function callAnthropic(apiKey, body) {
 function extractText(response) {
   if (!response || !response.content) return '';
   return response.content
-    .filter(b => b.type === 'text')
-    .map(b => b.text)
+    .filter(function(b) { return b.type === 'text'; })
+    .map(function(b) { return b.text; })
     .join('\n')
     .trim();
 }
 
+function trimPrompt(agent) {
+  var sp = agent.systemPrompt || '';
+  var lines = sp.split('\n').slice(0, 15).join('\n');
+  return lines.length > 600 ? lines.slice(0, 600) : lines;
+}
+
 async function generateArgument(apiKey, systemPrompt, userMessage) {
-  const response = await callAnthropic(apiKey, {
+  var response = await callAnthropic(apiKey, {
     model: 'claude-sonnet-4-5',
-    max_tokens: 1000,
+    max_tokens: 300,
     system: systemPrompt,
     messages: [{ role: 'user', content: userMessage }]
   });
-  const text = extractText(response);
+  var text = extractText(response);
   if (!text) throw new Error('Empty response');
   return text;
 }
 
 async function researchTopic(apiKey, topic) {
   try {
-    const response = await callAnthropic(apiKey, {
+    var response = await callAnthropic(apiKey, {
       model: 'claude-sonnet-4-5',
-      max_tokens: 1000,
+      max_tokens: 400,
       tools: [{ type: 'web_search_20250305', name: 'web_search' }],
       messages: [{
         role: 'user',
-        content: 'Research the current state of this debate topic: "' + topic + '". Find 4-5 relevant recent facts, statistics, or news items that debaters on both sides could use. Be concise. Return only a brief bullet-point summary.'
+        content: 'Research: "' + topic + '". Give me 4 brief bullet points of current relevant facts. Be very concise.'
       }]
     });
-    const summary = extractText(response);
+    var summary = extractText(response);
     console.log('Research complete for topic:', topic.slice(0, 50));
-    return summary || '';
+    return summary ? summary.slice(0, 400) : '';
   } catch (e) {
     console.error('Research failed:', e.message);
     return '';
@@ -81,47 +87,57 @@ async function researchTopic(apiKey, topic) {
 }
 
 async function generateFullDebate(apiKey, forAgents, againstAgents, topic, research) {
-  const prior = [];
-  const results = [];
-  const researchBlock = research ? '\n\nCURRENT RESEARCH about this topic:\n' + research : '';
+  var prior = [];
+  var results = [];
+  var researchBlock = research ? '\n\nKEY FACTS:\n' + research.slice(0, 400) : '';
 
-  for (let round = 1; round <= 3; round++) {
-    const forAgent = forAgents[round - 1];
-    const againstAgent = againstAgents[round - 1];
+  for (var round = 1; round <= 3; round++) {
+    var forAgent = forAgents[round - 1];
+    var againstAgent = againstAgents[round - 1];
 
-    const historyBlock = prior.length
-      ? '\n\nDebate so far:\n' + prior.map(function(p) {
+    var historyBlock = prior.length > 0
+      ? '\n\nPrior arguments:\n' + prior.map(function(p) {
           return p.name + ' (' + (p.side === 'for' ? 'FOR' : 'AGAINST') + '): ' + p.text;
         }).join('\n\n')
       : '';
 
-    const forSystem = forAgent.systemPrompt +
-      '\n\nYou are a member of The Normies Debate Society, arguing FOR the motion: "' + topic + '". ' +
-      'Stay completely in character. Be sharp, specific, and direct. 3 to 5 sentences maximum. ' +
-      'Do not introduce yourself. Engage with prior arguments when they exist. ' +
-      'Use current facts from the research provided where relevant.';
+    var forSystem = trimPrompt(forAgent) +
+      '\n\nYou are arguing FOR: "' + topic + '". ' +
+      'Stay in character. 3-4 sentences max. No introduction. ' +
+      'Engage prior arguments. Use research facts where relevant.';
 
-    const forUser = 'Make your argument FOR the motion: "' + topic + '"' + researchBlock + historyBlock;
+    var forUser = 'Argue FOR: "' + topic + '"' + researchBlock + historyBlock;
 
-    const forText = await generateArgument(apiKey, forSystem, forUser);
+    var forText = await generateArgument(apiKey, forSystem, forUser);
     prior.push({ name: forAgent.name, side: 'for', text: forText });
-    results.push({ agent: forAgent.tokenId, name: forAgent.name, side: 'for', text: forText, round: round });
+    results.push({
+      agent: forAgent.tokenId,
+      name: forAgent.name,
+      side: 'for',
+      text: forText,
+      round: round
+    });
 
-    const updatedHistory = '\n\nDebate so far:\n' + prior.map(function(p) {
+    var updatedHistory = '\n\nPrior arguments:\n' + prior.map(function(p) {
       return p.name + ' (' + (p.side === 'for' ? 'FOR' : 'AGAINST') + '): ' + p.text;
     }).join('\n\n');
 
-    const againstSystem = againstAgent.systemPrompt +
-      '\n\nYou are a member of The Normies Debate Society, arguing AGAINST the motion: "' + topic + '". ' +
-      'Stay completely in character. Be sharp, specific, and direct. 3 to 5 sentences maximum. ' +
-      'Do not introduce yourself. Engage with prior arguments when they exist. ' +
-      'Use current facts from the research provided where relevant.';
+    var againstSystem = trimPrompt(againstAgent) +
+      '\n\nYou are arguing AGAINST: "' + topic + '". ' +
+      'Stay in character. 3-4 sentences max. No introduction. ' +
+      'Engage prior arguments. Use research facts where relevant.';
 
-    const againstUser = 'Make your argument AGAINST the motion: "' + topic + '"' + researchBlock + updatedHistory;
+    var againstUser = 'Argue AGAINST: "' + topic + '"' + researchBlock + updatedHistory;
 
-    const againstText = await generateArgument(apiKey, againstSystem, againstUser);
+    var againstText = await generateArgument(apiKey, againstSystem, againstUser);
     prior.push({ name: againstAgent.name, side: 'against', text: againstText });
-    results.push({ agent: againstAgent.tokenId, name: againstAgent.name, side: 'against', text: againstText, round: round });
+    results.push({
+      agent: againstAgent.tokenId,
+      name: againstAgent.name,
+      side: 'against',
+      text: againstText,
+      round: round
+    });
   }
 
   return results;
@@ -137,13 +153,13 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  var apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     res.status(500).json({ error: 'API key not configured' });
     return;
   }
 
-  const body = req.body || {};
+  var body = req.body || {};
 
   if (body.saveDebate) {
     try {
@@ -161,7 +177,7 @@ module.exports = async function handler(req, res) {
 
   if (body.researchTopic) {
     try {
-      const summary = await researchTopic(apiKey, body.researchTopic);
+      var summary = await researchTopic(apiKey, body.researchTopic);
       res.status(200).json({ research: summary });
     } catch (e) {
       res.status(200).json({ research: '' });
@@ -170,9 +186,15 @@ module.exports = async function handler(req, res) {
   }
 
   if (body.generateDebate) {
-    const { forAgents, againstAgents, topic, research } = body.generateDebate;
+    var gd = body.generateDebate;
     try {
-      const results = await generateFullDebate(apiKey, forAgents, againstAgents, topic, research);
+      var results = await generateFullDebate(
+        apiKey,
+        gd.forAgents,
+        gd.againstAgents,
+        gd.topic,
+        gd.research || ''
+      );
       res.status(200).json({ results: results });
     } catch (e) {
       console.error('Debate generation error:', e.message);
@@ -187,7 +209,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const text = await generateArgument(apiKey, body.systemPrompt, body.userMessage);
+    var text = await generateArgument(apiKey, body.systemPrompt, body.userMessage);
     res.status(200).json({ text: text });
   } catch (err) {
     res.status(500).json({ error: err.message });
