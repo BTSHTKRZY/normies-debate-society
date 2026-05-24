@@ -33,18 +33,7 @@ module.exports = async function handler(req, res) {
       return;
     }
     try {
-      const debateRaw = await redis.get(`debate:${debateId}`);
-      if (debateRaw) {
-        const debate = typeof debateRaw === 'string' ? JSON.parse(debateRaw) : debateRaw;
-        const created = new Date(debate.timestamp).getTime();
-        const age = Date.now() - created;
-        const FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000;
-        if (age > FORTY_EIGHT_HOURS) {
-          res.status(403).json({ error: 'Voting closed', closed: true });
-          return;
-        }
-      }
-      const raw = await redis.get(`votes:${debateId}`);
+            const raw = await redis.get(`votes:${debateId}`);
     const votes = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : { aye: 0, nay: 0 };
       votes[side]++;
       await redis.set(`votes:${debateId}`, JSON.stringify(votes));
