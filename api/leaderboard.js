@@ -1,84 +1,47 @@
-const https = require('https');
+const { Redis } = require('@upstash/redis');
 
-function kvRequest(method, url, token, body) {
-  return new Promise((resolve, reject) => {
-    const urlObj = new URL(url);
-    const payload = body ? JSON.stringify(body) : null;
-    const options = {
-      hostname: urlObj.hostname,
-      path: urlObj.pathname + urlObj.search,
-      method,
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {})
-      }
-    };
-    const req = https.request(options, res => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve(data); }
-      });
-    });
-    req.on('error', reject);
-    if (payload) req.write(payload);
-    req.end();
-  });
-}
-
-async function kvGet(key, url, token) {
-  const result = await kvRequest('GET', `${url}/get/${encodeURIComponent(key)}`, token);
-  return result.result ? JSON.parse(result.result) : null;
-}
-
-async function kvLRange(key, start, stop, url, token) {
-  const result = await kvRequest('GET',
-    `${url}/lrange/${encodeURIComponent(key)}/${start}/${stop}`, token);
-  return result.result || [];
-}
+const redis = new Redis({
+  url: process.env.KV_REST_API_URL,
+  token: process.env.KV_REST_API_TOKEN,
+});
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
 
-  const kvUrl = process.env.KV_REST_API_URL;
-  const kvToken = process.env.KV_REST_API_TOKEN;
+  try {
+    const ids = await redis.lrange('debate:index', 0, 99);
+    const agentIds = new Set();
 
-  if (!kvUrl || !kvToken) {
-    res.status(500).json({ error: 'Storage not configured' });
-    return;
-  }
-
-  const debateIds = await kvLRange('debate:index', 0, 99, kvUrl, kvToken);
-  const agentTokenIds = new Set();
-
-  for (const id of debateIds) {
-    const debate = await kvGet(`debate:${id}`, kvUrl, kvToken);
-    if (debate) {
-      (debate.forAgents || []).forEach(a => agentTokenIds.add(String(a.tokenId)));
-      (debate.againstAgents || []).forEach(a => agentTokenIds.add(String(a.tokenId)));
+    for (const id of ids) {
+      const raw = await redis.get(`debate:${id}`);
+      if (!raw) continue;
+      const d = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      (d.forAgents || []).forEach(a => a?.tokenId && agentIds.add(String(a.tokenId)));
+      (d.againstAgents || []).forEach(a => a?.tokenId && agentIds.add(String(a.tokenId)));
     }
-  }
 
-  const leaderboard = [];
-  for (const tokenId of agentTokenIds) {
-    const record = await kvGet(`agent:${tokenId}`, kvUrl, kvToken);
-    if (record && record.appearances > 0) {
-      leaderboard.push({
-        tokenId,
-        ...record,
-        winRate: record.appearances > 0
-          ? Math.round((record.wins / record.appearances) * 100)
-          : 0
-      });
+    const leaderboard = [];
+    for (const tokenId of agentIds) {
+      const raw = await redis.get(`agent:${tokenId}`);
+      if (!raw) continue;
+      const rec = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (rec.appearances > 0) {
+        leaderboard.push({
+          tokenId,
+          ...rec,
+          winRate: Math.round((rec.wins / rec.appearances) * 100)
+        });
+      }
     }
+
+    leaderboard.sort((a, b) => b.wins - a.wins || b.winRate - a.winRate);
+    res.status(200).json({ leaderboard: leaderboard.slice(0, 20) });
+  } catch (e) {
+    console.error('Leaderboard error:', e.message);
+    res.status(500).json({ error: e.message, leaderboard: [] });
   }
-
-  leaderboard.sort((a, b) => b.wins - a.wins || b.winRate - a.winRate);
-
-  res.status(200).json({ leaderboard: leaderboard.slice(0, 20) });
 };
