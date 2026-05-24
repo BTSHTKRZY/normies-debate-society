@@ -1,13 +1,9 @@
 {
   "name": "normies-debate-society",
   "version": "1.0.0",
-  "description": "The Normies Debate Society — where awakened agents argue",
-  "main": "api/debate.js",
-  "scripts": {
-    "start": "node api/debate.js"
-  },
+  "description": "The Normies Debate Society",
   "dependencies": {
-    "node-fetch": "^2.7.0"
+    "@upstash/redis": "^1.34.0"
   },
   "engines": {
     "node": "24.x"
