@@ -33,7 +33,7 @@ function callAnthropic(apiKey, body) {
       });
     });
     req.on('error', reject);
-    req.setTimeout(30000, () => { req.destroy(); reject(new Error('Timeout')); });
+    req.setTimeout(25000, () => { req.destroy(); reject(new Error('Timeout')); });
     req.write(payload);
     req.end();
   });
@@ -48,6 +48,18 @@ function extractText(response) {
     .trim();
 }
 
+async function generateArgument(apiKey, systemPrompt, userMessage) {
+  const response = await callAnthropic(apiKey, {
+    model: 'claude-sonnet-4-5',
+    max_tokens: 1000,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userMessage }]
+  });
+  const text = extractText(response);
+  if (!text) throw new Error('Empty response');
+  return text;
+}
+
 async function researchTopic(apiKey, topic) {
   try {
     const response = await callAnthropic(apiKey, {
@@ -56,15 +68,11 @@ async function researchTopic(apiKey, topic) {
       tools: [{ type: 'web_search_20250305', name: 'web_search' }],
       messages: [{
         role: 'user',
-        content: `Research the current state of this debate topic: "${topic}"
-        
-Find 4-5 relevant, recent, specific facts, statistics, news items, or data points that debaters on BOTH sides could use.
-
-Be concise. Return only a brief bullet-point summary of the most relevant current information. Focus on facts published in the last 6 months where possible.`
+        content: 'Research the current state of this debate topic: "' + topic + '". Find 4-5 relevant recent facts, statistics, or news items that debaters on both sides could use. Be concise. Return only a brief bullet-point summary.'
       }]
     });
     const summary = extractText(response);
-    console.log('Research complete for topic:', topic);
+    console.log('Research complete for topic:', topic.slice(0, 50));
     return summary || '';
   } catch (e) {
     console.error('Research failed:', e.message);
@@ -72,80 +80,48 @@ Be concise. Return only a brief bullet-point summary of the most relevant curren
   }
 }
 
-async function generateArgument(apiKey, systemPrompt, userMessage) {
-  try {
-    const response = await callAnthropic(apiKey, {
-      model: 'claude-sonnet-4-5',
-      max_tokens: 1000,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userMessage }]
-    });
-    const text = extractText(response);
-    if (!text) throw new Error('Empty response');
-    return text;
-  } catch (e) {
-    throw new Error(e.message || 'Generation failed');
-  }
-}
-
 async function generateFullDebate(apiKey, forAgents, againstAgents, topic, research) {
   const prior = [];
   const results = [];
+  const researchBlock = research ? '\n\nCURRENT RESEARCH about this topic:\n' + research : '';
 
   for (let round = 1; round <= 3; round++) {
     const forAgent = forAgents[round - 1];
     const againstAgent = againstAgents[round - 1];
 
-    const sideLabel = 'FOR the motion';
-    const againstLabel = 'AGAINST the motion';
-    const researchBlock = research
-      ? `\n\nCURRENT RESEARCH about this topic:\n${research}`
-      : '';
     const historyBlock = prior.length
-      ? '\n\nDebate so far:\n' + prior.map(p =>
-          `${p.name} (${p.side === 'for' ? 'FOR' : 'AGAINST'}): ${p.text}`
-        ).join('\n\n')
+      ? '\n\nDebate so far:\n' + prior.map(function(p) {
+          return p.name + ' (' + (p.side === 'for' ? 'FOR' : 'AGAINST') + '): ' + p.text;
+        }).join('\n\n')
       : '';
 
     const forSystem = forAgent.systemPrompt +
-      `\n\nYou are a member of The Normies Debate Society, arguing FOR the motion: "${topic}". ` +
-      `Stay completely in character. Be sharp, specific, and direct. 3 to 5 sentences maximum. ` +
-      `Do not introduce yourself. Engage with prior arguments when they exist. ` +
-      `Use current facts from the research provided where relevant.`;
+      '\n\nYou are a member of The Normies Debate Society, arguing FOR the motion: "' + topic + '". ' +
+      'Stay completely in character. Be sharp, specific, and direct. 3 to 5 sentences maximum. ' +
+      'Do not introduce yourself. Engage with prior arguments when they exist. ' +
+      'Use current facts from the research provided where relevant.';
 
-    const forUser = `Make your argument FOR the motion: "${topic}"${researchBlock}${historyBlock}`;
+    const forUser = 'Make your argument FOR the motion: "' + topic + '"' + researchBlock + historyBlock;
 
     const forText = await generateArgument(apiKey, forSystem, forUser);
     prior.push({ name: forAgent.name, side: 'for', text: forText });
-    results.push({
-      agent: forAgent.tokenId,
-      name: forAgent.name,
-      side: 'for',
-      text: forText,
-      round
-    });
+    results.push({ agent: forAgent.tokenId, name: forAgent.name, side: 'for', text: forText, round: round });
 
-    const updatedHistory = '\n\nDebate so far:\n' + prior.map(p =>
-      `${p.name} (${p.side === 'for' ? 'FOR' : 'AGAINST'}): ${p.text}`
-    ).join('\n\n');
+    const updatedHistory = '\n\nDebate so far:\n' + prior.map(function(p) {
+      return p.name + ' (' + (p.side === 'for' ? 'FOR' : 'AGAINST') + '): ' + p.text;
+    }).join('\n\n');
 
     const againstSystem = againstAgent.systemPrompt +
-      `\n\nYou are a member of The Normies Debate Society, arguing AGAINST the motion: "${topic}". ` +
-      `Stay completely in character. Be sharp, specific, and direct. 3 to 5 sentences maximum. ` +
-      `Do not introduce yourself. Engage with prior arguments when they exist. ` +
-      `Use current facts from the research provided where relevant.`;
+      '\n\nYou are a member of The Normies Debate Society, arguing AGAINST the motion: "' + topic + '". ' +
+      'Stay completely in character. Be sharp, specific, and direct. 3 to 5 sentences maximum. ' +
+      'Do not introduce yourself. Engage with prior arguments when they exist. ' +
+      'Use current facts from the research provided where relevant.';
 
-    const againstUser = `Make your argument AGAINST the motion: "${topic}"${researchBlock}${updatedHistory}`;
+    const againstUser = 'Make your argument AGAINST the motion: "' + topic + '"' + researchBlock + updatedHistory;
 
     const againstText = await generateArgument(apiKey, againstSystem, againstUser);
     prior.push({ name: againstAgent.name, side: 'against', text: againstText });
-    results.push({
-      agent: againstAgent.tokenId,
-      name: againstAgent.name,
-      side: 'against',
-      text: againstText,
-      round
-    });
+    results.push({ agent: againstAgent.tokenId, name: againstAgent.name, side: 'against', text: againstText, round: round });
   }
 
   return results;
@@ -167,15 +143,14 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const { systemPrompt, userMessage, saveDebate, researchTopic: topicToResearch } = req.body || {};
+  const body = req.body || {};
 
-  // Handle debate save
-  if (saveDebate) {
+  if (body.saveDebate) {
     try {
-      console.log('Saving debate:', saveDebate.id);
-      await redis.set(`debate:${saveDebate.id}`, JSON.stringify(saveDebate));
-      await redis.lpush('debate:index', saveDebate.id);
-      console.log('Debate saved successfully:', saveDebate.id);
+      console.log('Saving debate:', body.saveDebate.id);
+      await redis.set('debate:' + body.saveDebate.id, JSON.stringify(body.saveDebate));
+      await redis.lpush('debate:index', body.saveDebate.id);
+      console.log('Debate saved successfully:', body.saveDebate.id);
       res.status(200).json({ saved: true });
     } catch (e) {
       console.error('Save error:', e.message);
@@ -184,10 +159,9 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  // Handle topic research
-  if (topicToResearch) {
+  if (body.researchTopic) {
     try {
-      const summary = await researchTopic(apiKey, topicToResearch);
+      const summary = await researchTopic(apiKey, body.researchTopic);
       res.status(200).json({ research: summary });
     } catch (e) {
       res.status(200).json({ research: '' });
@@ -195,29 +169,27 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-    // Handle full debate generation
-  const { generateDebate } = req.body || {};
-  if (generateDebate) {
-    const { forAgents, againstAgents, topic, research } = generateDebate;
+  if (body.generateDebate) {
+    const { forAgents, againstAgents, topic, research } = body.generateDebate;
     try {
       const results = await generateFullDebate(apiKey, forAgents, againstAgents, topic, research);
-      res.status(200).json({ results });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
+      res.status(200).json({ results: results });
+    } catch (e) {
+      console.error('Debate generation error:', e.message);
+      res.status(500).json({ error: e.message });
     }
     return;
   }
 
-  // Handle single argument generation (fallback)
-  if (!systemPrompt || !userMessage) {
+  if (!body.systemPrompt || !body.userMessage) {
     res.status(400).json({ error: 'Missing fields' });
     return;
   }
 
   try {
-    const text = await generateArgument(apiKey, systemPrompt, userMessage);
-    res.status(200).json({ text });
+    const text = await generateArgument(apiKey, body.systemPrompt, body.userMessage);
+    res.status(200).json({ text: text });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-
+};
