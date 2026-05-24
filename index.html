@@ -510,7 +510,7 @@
         prior.push({ name: forAgent.name, side: 'for', text: forText });
         state.arguments.push({ agent: forAgent.tokenId, name: forAgent.name, side: 'for', text: forText, round });
         appendArg(forAgent, 'for', forText, round, 0);
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 200));
 
         setMsg(`Round ${round} — ${againstAgent.name} responds...`);
         const ap = buildPrompt(againstAgent, 'against', topic, prior, researchContext);
@@ -518,7 +518,7 @@
         prior.push({ name: againstAgent.name, side: 'against', text: againstText });
         state.arguments.push({ agent: againstAgent.tokenId, name: againstAgent.name, side: 'against', text: againstText, round });
         appendArg(againstAgent, 'against', againstText, round, 150);
-        await new Promise(r => setTimeout(r, 600));
+        await new Promise(r => setTimeout(r, 200));
       }
 
       await saveDebate();
