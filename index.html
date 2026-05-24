@@ -549,7 +549,7 @@
     list.innerHTML = '';
     loading.style.display = 'block';
     try {
-      const data = await fetch(LB_API + '?nocache=' + Date.now() + '&r=' + Math.random()).then(r => r.json());
+      const data = await fetch(ARCHIVE_API + '?nocache=' + Date.now() + '&r=' + Math.random()).then(r => r.json());
       loading.style.display = 'none';
       const debates = data.debates || [];
       if (debates.length === 0) {
@@ -565,6 +565,7 @@
         const date = d.timestamp ? new Date(d.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recent';
         const card = document.createElement('div');
         card.className = 'archive-card';
+       card.onclick = () => openArchivedDebate(d);
         card.innerHTML = `
           <div class="archive-topic">${d.topic || 'Untitled debate'}</div>
           <div class="archive-meta">
@@ -626,6 +627,34 @@
       console.error('Leaderboard error:', e);
     }
   }
+ function openArchivedDebate(d) {
+    document.getElementById('session-topic').textContent = d.topic || '';
+    if (Array.isArray(d.forAgents) && Array.isArray(d.againstAgents)) {
+      renderTeams(d.forAgents, d.againstAgents);
+    }
+    const thread = document.getElementById('debate-thread');
+    thread.innerHTML = '';
+    thread.removeAttribute('data-last-round');
+    if (Array.isArray(d.arguments)) {
+      d.arguments.forEach((arg, idx) => {
+        const agent = [...(d.forAgents || []), ...(d.againstAgents || [])].find(a => String(a.tokenId) === String(arg.agent));
+        if (agent) appendArg(agent, arg.side, arg.text, arg.round, idx * 50);
+      });
+    }
+    state.votes = { aye: d.votes?.aye || 0, nay: d.votes?.nay || 0 };
+    state.voted = false;
+    state.debateId = d.id;
+    state.topic = d.topic;
+    document.getElementById('vote-card').style.display = 'block';
+    document.getElementById('vote-confirm').style.display = 'none';
+    document.getElementById('btn-aye').classList.remove('chosen');
+    document.getElementById('btn-nay').classList.remove('chosen');
+    updateBar();
+    switchTab('debate');
+    showPhase('debate');
+    window.scrollTo(0, 0);
+  }
+
 </script>
 </body>
 </html>
