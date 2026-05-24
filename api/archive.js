@@ -1,12 +1,12 @@
 const https = require('https');
 
-function kvRequest(method, urlStr, token, bodyObj) {
+function kvRequest(method, urlStr, token, bodyArr) {
   return new Promise((resolve, reject) => {
-    const payload = bodyObj ? JSON.stringify(bodyObj) : null;
+    const payload = bodyArr ? JSON.stringify(bodyArr) : null;
     const urlObj = new URL(urlStr);
     const options = {
       hostname: urlObj.hostname,
-      path: urlObj.pathname + urlObj.search,
+      path: urlObj.pathname,
       method,
       headers: {
         'Authorization': 'Bearer ' + token,
@@ -28,32 +28,14 @@ function kvRequest(method, urlStr, token, bodyObj) {
   });
 }
 
-async function kvGet(key, url, token) {
+async function upstashCommand(url, token, ...args) {
   try {
-    const r = await kvRequest('GET', `${url}/get/${encodeURIComponent(key)}`, token);
-    return r.result ? JSON.parse(r.result) : null;
-  } catch { return null; }
-}
-
-async function kvSet(key, value, url, token) {
-  try {
-    await kvRequest('POST', `${url}/set/${encodeURIComponent(key)}`, token, [JSON.stringify(value)]);
-  } catch (e) { console.error('kvSet error:', e.message); }
-}
-
-async function kvLPush(key, value, url, token) {
-  try {
-    const r = await kvRequest('POST', `${url}/lpush/${encodeURIComponent(key)}`, token, [JSON.stringify(value)]);
-    console.log('lpush result:', JSON.stringify(r));
-  } catch (e) { console.error('lpush error:', e.message); }
-}
-
-async function kvLRange(key, start, stop, url, token) {
-  try {
-    const r = await kvRequest('GET', `${url}/lrange/${encodeURIComponent(key)}/${start}/${stop}`, token);
-    console.log('lrange result:', JSON.stringify(r));
-    return Array.isArray(r.result) ? r.result : [];
-  } catch { return []; }
+    const r = await kvRequest('POST', url, token, args);
+    return r.result !== undefined ? r.result : null;
+  } catch (e) {
+    console.error('Upstash command error:', e.message);
+    return null;
+  }
 }
 
 module.exports = async function handler(req, res) {
@@ -76,25 +58,37 @@ module.exports = async function handler(req, res) {
     const id = req.query && req.query.id ? req.query.id : null;
 
     if (id) {
-      const debate = await kvGet(`debate:${id}`, kvUrl, kvToken);
-      const votes = await kvGet(`votes:${id}`, kvUrl, kvToken) || { aye: 0, nay: 0 };
-      if (!debate) { res.status(404).json({ error: 'Not found' }); return; }
+      const debateRaw = await upstashCommand(kvUrl, kvToken, 'GET', `debate:${id}`);
+      const votesRaw = await upstashCommand(kvUrl, kvToken, 'GET', `votes:${id}`);
+      if (!debateRaw) { res.status(404).json({ error: 'Not found' }); return; }
+      const debate = typeof debateRaw === 'string' ? JSON.parse(debateRaw) : debateRaw;
+      const votes = votesRaw ? (typeof votesRaw === 'string' ? JSON.parse(votesRaw) : votesRaw) : { aye: 0, nay: 0 };
       res.status(200).json({ ...debate, votes });
       return;
     }
 
-    const ids = await kvLRange('debate:index', 0, 49, kvUrl, kvToken);
-    console.log('debate ids from index:', JSON.stringify(ids));
+    // Use SCAN to find all debate keys
+    const scanResult = await upstashCommand(kvUrl, kvToken, 'SCAN', '0', 'MATCH', 'debate:*', 'COUNT', '100');
+    console.log('SCAN result:', JSON.stringify(scanResult));
+
+    const keys = Array.isArray(scanResult) && Array.isArray(scanResult[1])
+      ? scanResult[1].filter(k => k !== 'debate:index')
+      : [];
+
+    console.log('debate keys found:', keys.length);
 
     const debates = [];
-    for (const rawId of ids) {
-      let did = rawId;
-      try { did = JSON.parse(rawId); } catch { }
-      const d = await kvGet(`debate:${did}`, kvUrl, kvToken);
-      const v = await kvGet(`votes:${did}`, kvUrl, kvToken) || { aye: 0, nay: 0 };
-      if (d) debates.push({ ...d, votes: v });
+    for (const key of keys) {
+      const debateRaw = await upstashCommand(kvUrl, kvToken, 'GET', key);
+      if (!debateRaw) continue;
+      const d = typeof debateRaw === 'string' ? JSON.parse(debateRaw) : debateRaw;
+      const debateId = key.replace('debate:', '');
+      const votesRaw = await upstashCommand(kvUrl, kvToken, 'GET', `votes:${debateId}`);
+      const v = votesRaw ? (typeof votesRaw === 'string' ? JSON.parse(votesRaw) : votesRaw) : { aye: 0, nay: 0 };
+      if (d && d.topic) debates.push({ ...d, votes: v });
     }
 
+    debates.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     res.status(200).json({ debates });
     return;
   }
@@ -105,8 +99,8 @@ module.exports = async function handler(req, res) {
       res.status(400).json({ error: 'Missing debate data' });
       return;
     }
-    await kvSet(`debate:${debate.id}`, debate, kvUrl, kvToken);
-    await kvLPush('debate:index', debate.id, kvUrl, kvToken);
+    const saved = await upstashCommand(kvUrl, kvToken, 'SET', `debate:${debate.id}`, JSON.stringify(debate));
+    console.log('debate saved:', saved, 'id:', debate.id);
     res.status(200).json({ saved: true });
     return;
   }
