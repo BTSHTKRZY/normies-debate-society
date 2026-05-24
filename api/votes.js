@@ -38,28 +38,32 @@ module.exports = async function handler(req, res) {
       votes[side]++;
       await redis.set(`votes:${debateId}`, JSON.stringify(votes));
 
-      const debateRaw = await redis.get(`debate:${debateId}`);
-      if (debateRaw) {
-        const debate = typeof debateRaw === 'string' ? JSON.parse(debateRaw) : debateRaw;
-        const winner = votes.aye > votes.nay ? 'aye' : votes.nay > votes.aye ? 'nay' : 'tie';
-        const forAgents = Array.isArray(debate.forAgents) ? debate.forAgents : [];
-        const againstAgents = Array.isArray(debate.againstAgents) ? debate.againstAgents : [];
-        const winTeam = winner === 'aye' ? forAgents : winner === 'nay' ? againstAgents : [];
-        const loseTeam = winner === 'aye' ? againstAgents : winner === 'nay' ? forAgents : [];
-        for (const agent of winTeam) {
-          if (!agent?.tokenId) continue;
-          const r = await redis.get(`agent:${agent.tokenId}`);
-          const rec = r ? (typeof r === 'string' ? JSON.parse(r) : r) : { wins: 0, losses: 0, appearances: 0, name: '' };
-          rec.wins++; rec.appearances++; rec.name = agent.name || rec.name;
-          await redis.set(`agent:${agent.tokenId}`, JSON.stringify(rec));
+            try {
+        const debateRaw = await redis.get(`debate:${debateId}`);
+        if (debateRaw) {
+          const debate = typeof debateRaw === 'string' ? JSON.parse(debateRaw) : debateRaw;
+          const winner = votes.aye > votes.nay ? 'aye' : votes.nay > votes.aye ? 'nay' : 'tie';
+          const forAgents = Array.isArray(debate.forAgents) ? debate.forAgents : [];
+          const againstAgents = Array.isArray(debate.againstAgents) ? debate.againstAgents : [];
+          const winTeam = winner === 'aye' ? forAgents : winner === 'nay' ? againstAgents : [];
+          const loseTeam = winner === 'aye' ? againstAgents : winner === 'nay' ? forAgents : [];
+          for (const agent of winTeam) {
+            if (!agent?.tokenId) continue;
+            const r = await redis.get(`agent:${agent.tokenId}`);
+            const rec = r ? (typeof r === 'string' ? JSON.parse(r) : r) : { wins: 0, losses: 0, appearances: 0, name: '' };
+            rec.wins++; rec.appearances++; rec.name = agent.name || rec.name;
+            await redis.set(`agent:${agent.tokenId}`, JSON.stringify(rec));
+          }
+          for (const agent of loseTeam) {
+            if (!agent?.tokenId) continue;
+            const r = await redis.get(`agent:${agent.tokenId}`);
+            const rec = r ? (typeof r === 'string' ? JSON.parse(r) : r) : { wins: 0, losses: 0, appearances: 0, name: '' };
+            rec.losses++; rec.appearances++; rec.name = agent.name || rec.name;
+            await redis.set(`agent:${agent.tokenId}`, JSON.stringify(rec));
+          }
         }
-        for (const agent of loseTeam) {
-          if (!agent?.tokenId) continue;
-          const r = await redis.get(`agent:${agent.tokenId}`);
-          const rec = r ? (typeof r === 'string' ? JSON.parse(r) : r) : { wins: 0, losses: 0, appearances: 0, name: '' };
-          rec.losses++; rec.appearances++; rec.name = agent.name || rec.name;
-          await redis.set(`agent:${agent.tokenId}`, JSON.stringify(rec));
-        }
+      } catch (leaderboardErr) {
+        console.error('Leaderboard update error:', leaderboardErr.message);
       }
       res.status(200).json(votes);
     } catch (e) {
