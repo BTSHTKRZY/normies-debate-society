@@ -48,10 +48,20 @@ function extractText(response) {
     .trim();
 }
 
-function trimPrompt(agent) {
-  var sp = agent.systemPrompt || '';
-  var lines = sp.split('\n').slice(0, 15).join('\n');
-  return lines.length > 600 ? lines.slice(0, 600) : lines;
+function buildCharacter(agent) {
+  var name = agent.name || 'Agent';
+  var type = agent.type || 'Human';
+  var tagline = agent.tagline || '';
+  var traits = Array.isArray(agent.personalityTraits)
+    ? agent.personalityTraits.slice(0, 3).join(', ')
+    : '';
+  var style = agent.communicationStyle
+    ? agent.communicationStyle.slice(0, 150)
+    : '';
+  return 'You are ' + name + ', a ' + type + ' from the Normies NFT collection on Ethereum. ' +
+    (tagline ? 'Your tagline: "' + tagline + '". ' : '') +
+    (traits ? 'Your personality: ' + traits + '. ' : '') +
+    (style ? 'Your communication style: ' + style : '');
 }
 
 async function generateArgument(apiKey, systemPrompt, userMessage) {
@@ -101,7 +111,7 @@ async function generateFullDebate(apiKey, forAgents, againstAgents, topic, resea
         }).join('\n\n')
       : '';
 
-    var forSystem = trimPrompt(forAgent) +
+    var forSystem = buildCharacter(forAgent) +
       '\n\nYou are arguing FOR: "' + topic + '". ' +
       'Stay in character. 3-4 sentences max. No introduction. ' +
       'Engage prior arguments. Use research facts where relevant.';
@@ -122,7 +132,7 @@ async function generateFullDebate(apiKey, forAgents, againstAgents, topic, resea
       return p.name + ' (' + (p.side === 'for' ? 'FOR' : 'AGAINST') + '): ' + p.text;
     }).join('\n\n');
 
-    var againstSystem = trimPrompt(againstAgent) +
+    var againstSystem = buildCharacter(againstAgent) +
       '\n\nYou are arguing AGAINST: "' + topic + '". ' +
       'Stay in character. 3-4 sentences max. No introduction. ' +
       'Engage prior arguments. Use research facts where relevant.';
