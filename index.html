@@ -329,8 +329,14 @@
     return d.text;
   }
 
-  async function saveDebate() {
+    async function saveDebate() {
     try {
+      const slimAgents = agents => agents.map(a => ({
+        tokenId: a.tokenId,
+        name: a.name,
+        type: a.type,
+        canvas: { level: a.canvas?.level || 1 }
+      }));
       await fetch(BACKEND, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -338,10 +344,10 @@
           saveDebate: {
             id: state.debateId,
             topic: state.topic,
-            forAgents: state.forAgents,
-            againstAgents: state.againstAgents,
+            forAgents: slimAgents(state.forAgents),
+            againstAgents: slimAgents(state.againstAgents),
             arguments: state.arguments,
-            timestamp: new Date().toISOString()
+            timestamp: state.debateTimestamp || new Date().toISOString()
           }
         })
       });
