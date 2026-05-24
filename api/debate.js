@@ -6,14 +6,9 @@ const redis = new Redis({
   token: process.env.KV_REST_API_TOKEN,
 });
 
-function callAnthropic(apiKey, systemPrompt, userMessage) {
+function callAnthropic(apiKey, body) {
   return new Promise((resolve, reject) => {
-    const payload = JSON.stringify({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 1000,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userMessage }]
-    });
+    const payload = JSON.stringify(body);
     const options = {
       hostname: 'api.anthropic.com',
       path: '/v1/messages',
@@ -22,6 +17,7 @@ function callAnthropic(apiKey, systemPrompt, userMessage) {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'web-search-2025-03-05',
         'Content-Length': Buffer.byteLength(payload)
       }
     };
@@ -32,15 +28,64 @@ function callAnthropic(apiKey, systemPrompt, userMessage) {
         try {
           const parsed = JSON.parse(data);
           if (parsed.error) reject(new Error(parsed.error.message));
-          else resolve(parsed.content?.[0]?.text || '');
+          else resolve(parsed);
         } catch (e) { reject(new Error('Parse failed')); }
       });
     });
     req.on('error', reject);
-    req.setTimeout(25000, () => { req.destroy(); reject(new Error('Timeout')); });
+    req.setTimeout(30000, () => { req.destroy(); reject(new Error('Timeout')); });
     req.write(payload);
     req.end();
   });
+}
+
+function extractText(response) {
+  if (!response || !response.content) return '';
+  return response.content
+    .filter(b => b.type === 'text')
+    .map(b => b.text)
+    .join('\n')
+    .trim();
+}
+
+async function researchTopic(apiKey, topic) {
+  try {
+    const response = await callAnthropic(apiKey, {
+      model: 'claude-sonnet-4-5',
+      max_tokens: 1000,
+      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+      messages: [{
+        role: 'user',
+        content: `Research the current state of this debate topic: "${topic}"
+        
+Find 4-5 relevant, recent, specific facts, statistics, news items, or data points that debaters on BOTH sides could use.
+
+Be concise. Return only a brief bullet-point summary of the most relevant current information. Focus on facts published in the last 6 months where possible.`
+      }]
+    });
+    const summary = extractText(response);
+    console.log('Research complete for topic:', topic);
+    return summary || '';
+  } catch (e) {
+    console.error('Research failed:', e.message);
+    return '';
+  }
+}
+
+async function generateArgument(apiKey, systemPrompt, userMessage) {
+  try {
+    const response = await callAnthropic(apiKey, {
+      model: 'claude-sonnet-4-5',
+      max_tokens: 1000,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMessage }]
+    });
+    const text = extractText(response);
+    if (!text) throw new Error('Empty response');
+    return text;
+  } catch (e) {
+    throw new Error(e.message || 'Generation failed');
+  }
 }
 
 module.exports = async function handler(req, res) {
@@ -48,10 +93,20 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
-  if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
 
-  const { systemPrompt, userMessage, saveDebate } = req.body || {};
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    res.status(500).json({ error: 'API key not configured' });
+    return;
+  }
 
+  const { systemPrompt, userMessage, saveDebate, researchTopic: topicToResearch } = req.body || {};
+
+  // Handle debate save
   if (saveDebate) {
     try {
       console.log('Saving debate:', saveDebate.id);
@@ -66,16 +121,25 @@ module.exports = async function handler(req, res) {
     return;
   }
 
+  // Handle topic research
+  if (topicToResearch) {
+    try {
+      const summary = await researchTopic(apiKey, topicToResearch);
+      res.status(200).json({ research: summary });
+    } catch (e) {
+      res.status(200).json({ research: '' });
+    }
+    return;
+  }
+
+  // Handle argument generation
   if (!systemPrompt || !userMessage) {
     res.status(400).json({ error: 'Missing fields' });
     return;
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) { res.status(500).json({ error: 'API key not configured' }); return; }
-
   try {
-    const text = await callAnthropic(apiKey, systemPrompt, userMessage);
+    const text = await generateArgument(apiKey, systemPrompt, userMessage);
     res.status(200).json({ text });
   } catch (err) {
     res.status(500).json({ error: err.message });
