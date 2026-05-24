@@ -88,6 +88,69 @@ async function generateArgument(apiKey, systemPrompt, userMessage) {
   }
 }
 
+async function generateFullDebate(apiKey, forAgents, againstAgents, topic, research) {
+  const prior = [];
+  const results = [];
+
+  for (let round = 1; round <= 3; round++) {
+    const forAgent = forAgents[round - 1];
+    const againstAgent = againstAgents[round - 1];
+
+    const sideLabel = 'FOR the motion';
+    const againstLabel = 'AGAINST the motion';
+    const researchBlock = research
+      ? `\n\nCURRENT RESEARCH about this topic:\n${research}`
+      : '';
+    const historyBlock = prior.length
+      ? '\n\nDebate so far:\n' + prior.map(p =>
+          `${p.name} (${p.side === 'for' ? 'FOR' : 'AGAINST'}): ${p.text}`
+        ).join('\n\n')
+      : '';
+
+    const forSystem = forAgent.systemPrompt +
+      `\n\nYou are a member of The Normies Debate Society, arguing FOR the motion: "${topic}". ` +
+      `Stay completely in character. Be sharp, specific, and direct. 3 to 5 sentences maximum. ` +
+      `Do not introduce yourself. Engage with prior arguments when they exist. ` +
+      `Use current facts from the research provided where relevant.`;
+
+    const forUser = `Make your argument FOR the motion: "${topic}"${researchBlock}${historyBlock}`;
+
+    const forText = await generateArgument(apiKey, forSystem, forUser);
+    prior.push({ name: forAgent.name, side: 'for', text: forText });
+    results.push({
+      agent: forAgent.tokenId,
+      name: forAgent.name,
+      side: 'for',
+      text: forText,
+      round
+    });
+
+    const updatedHistory = '\n\nDebate so far:\n' + prior.map(p =>
+      `${p.name} (${p.side === 'for' ? 'FOR' : 'AGAINST'}): ${p.text}`
+    ).join('\n\n');
+
+    const againstSystem = againstAgent.systemPrompt +
+      `\n\nYou are a member of The Normies Debate Society, arguing AGAINST the motion: "${topic}". ` +
+      `Stay completely in character. Be sharp, specific, and direct. 3 to 5 sentences maximum. ` +
+      `Do not introduce yourself. Engage with prior arguments when they exist. ` +
+      `Use current facts from the research provided where relevant.`;
+
+    const againstUser = `Make your argument AGAINST the motion: "${topic}"${researchBlock}${updatedHistory}`;
+
+    const againstText = await generateArgument(apiKey, againstSystem, againstUser);
+    prior.push({ name: againstAgent.name, side: 'against', text: againstText });
+    results.push({
+      agent: againstAgent.tokenId,
+      name: againstAgent.name,
+      side: 'against',
+      text: againstText,
+      round
+    });
+  }
+
+  return results;
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -132,7 +195,20 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  // Handle argument generation
+    // Handle full debate generation
+  const { generateDebate } = req.body || {};
+  if (generateDebate) {
+    const { forAgents, againstAgents, topic, research } = generateDebate;
+    try {
+      const results = await generateFullDebate(apiKey, forAgents, againstAgents, topic, research);
+      res.status(200).json({ results });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+    return;
+  }
+
+  // Handle single argument generation (fallback)
   if (!systemPrompt || !userMessage) {
     res.status(400).json({ error: 'Missing fields' });
     return;
@@ -144,4 +220,4 @@ module.exports = async function handler(req, res) {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-};
+
