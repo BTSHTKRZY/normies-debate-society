@@ -412,18 +412,22 @@
     document.getElementById(`avg-${key}`).textContent = `${val}/5`;
   }
 
-  function buildPrompt(agent, side, topic, prior) {
+    function buildPrompt(agent, side, topic, prior, research) {
     const sideLabel = side === 'for' ? 'FOR the motion' : 'AGAINST the motion';
     const history = prior.length
       ? '\n\nDebate so far:\n' + prior.map(p =>
           `${p.name} (${p.side === 'for' ? 'FOR' : 'AGAINST'}): ${p.text}`).join('\n\n')
       : '';
+    const researchBlock = research
+      ? `\n\nCURRENT RESEARCH AND FACTS about this topic (use these to make your argument specific and current — cite real data where relevant):\n${research}`
+      : '';
     return {
       system: agent.systemPrompt +
         `\n\nYou are a member of The Normies Debate Society, arguing ${sideLabel} on the motion: "${topic}". ` +
         `Stay completely in character. Be sharp, specific, and direct. 3 to 5 sentences maximum. ` +
-        `Do not introduce yourself. Engage with prior arguments when they exist.`,
-      user: `Make your argument ${sideLabel} the motion: "${topic}"${history}`
+        `Do not introduce yourself. Engage with prior arguments when they exist. ` +
+        `Use current facts and data from the research provided to strengthen your argument.`,
+      user: `Make your argument ${sideLabel} the motion: "${topic}"${researchBlock}${history}`
     };
   }
 
@@ -451,11 +455,28 @@
       setMsg('Drawing teams at random...');
       const picked = pickRandom(agents, 6);
 
-      setMsg('Loading member personas...');
+            setMsg('Loading member personas from on-chain state...');
       const [fa, aa] = await Promise.all([
         Promise.all(picked.slice(0, 3).map(a => fetchJSON(`${NORMIES_API}/agents/info/${a.tokenId}`))),
         Promise.all(picked.slice(3, 6).map(a => fetchJSON(`${NORMIES_API}/agents/info/${a.tokenId}`)))
       ]);
+
+      setMsg('Researching the topic across the web...');
+      let researchContext = '';
+      try {
+        const researchResp = await fetch(BACKEND, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ researchTopic: topic })
+        });
+        const researchData = await researchResp.json();
+        researchContext = researchData.research || '';
+        if (researchContext) {
+          console.log('Research context loaded:', researchContext.slice(0, 100));
+        }
+      } catch (e) {
+        console.log('Research skipped:', e.message);
+      }
 
       state.forAgents = fa.filter(Boolean);
       state.againstAgents = aa.filter(Boolean);
@@ -483,7 +504,7 @@
         const againstAgent = state.againstAgents[round - 1];
 
         setMsg(`Round ${round} — ${forAgent.name} takes the floor...`);
-        const fp = buildPrompt(forAgent, 'for', topic, prior);
+        const fp = buildPrompt(forAgent, 'for', topic, prior, researchContext);
         const forText = await callBackend(fp.system, fp.user);
         prior.push({ name: forAgent.name, side: 'for', text: forText });
         state.arguments.push({ agent: forAgent.tokenId, name: forAgent.name, side: 'for', text: forText, round });
@@ -491,7 +512,7 @@
         await new Promise(r => setTimeout(r, 500));
 
         setMsg(`Round ${round} — ${againstAgent.name} responds...`);
-        const ap = buildPrompt(againstAgent, 'against', topic, prior);
+        const ap = buildPrompt(againstAgent, 'against', topic, prior, researchContext);
         const againstText = await callBackend(ap.system, ap.user);
         prior.push({ name: againstAgent.name, side: 'against', text: againstText });
         state.arguments.push({ agent: againstAgent.tokenId, name: againstAgent.name, side: 'against', text: againstText, round });
