@@ -499,26 +499,34 @@
 
       showPhase('debate');
 
-      const prior = [];
-      for (let round = 1; round <= 3; round++) {
-        const forAgent = state.forAgents[round - 1];
-        const againstAgent = state.againstAgents[round - 1];
+            setMsg('The members are taking their seats...');
 
-        setMsg(`Round ${round} — ${forAgent.name} takes the floor...`);
-        const fp = buildPrompt(forAgent, 'for', topic, prior, researchContext);
-        const forText = await callBackend(fp.system, fp.user);
-        prior.push({ name: forAgent.name, side: 'for', text: forText });
-        state.arguments.push({ agent: forAgent.tokenId, name: forAgent.name, side: 'for', text: forText, round });
-        appendArg(forAgent, 'for', forText, round, 0);
-        await new Promise(r => setTimeout(r, 200));
+      const debateResp = await fetch(BACKEND, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          generateDebate: {
+            forAgents: state.forAgents,
+            againstAgents: state.againstAgents,
+            topic,
+            research: researchContext
+          }
+        })
+      });
 
-        setMsg(`Round ${round} — ${againstAgent.name} responds...`);
-        const ap = buildPrompt(againstAgent, 'against', topic, prior, researchContext);
-        const againstText = await callBackend(ap.system, ap.user);
-        prior.push({ name: againstAgent.name, side: 'against', text: againstText });
-        state.arguments.push({ agent: againstAgent.tokenId, name: againstAgent.name, side: 'against', text: againstText, round });
-        appendArg(againstAgent, 'against', againstText, round, 150);
-        await new Promise(r => setTimeout(r, 200));
+      const debateData = await debateResp.json();
+      if (!debateResp.ok) throw new Error(debateData.error || 'Debate generation failed');
+
+      const results = debateData.results || [];
+      state.arguments = results;
+
+      for (const result of results) {
+        const agent = [...state.forAgents, ...state.againstAgents]
+          .find(a => String(a.tokenId) === String(result.agent));
+        if (agent) {
+          appendArg(agent, result.side, result.text, result.round, 0);
+          await new Promise(r => setTimeout(r, 300));
+        }
       }
 
       await saveDebate();
