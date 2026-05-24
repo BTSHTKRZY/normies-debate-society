@@ -425,12 +425,14 @@
     const topic = document.getElementById('topic-input').value.trim();
     if (!topic) return;
 
-    state = {
+        state = {
       debateId: generateId(),
       topic,
+      debateTimestamp: new Date().toISOString(),
       forAgents: [], againstAgents: [], arguments: [],
       votes: { aye: 0, nay: 0 }, voted: false, ratings: {}
     };
+
 
     showPhase('loading');
     setMsg('Summoning members from the chain...');
@@ -495,7 +497,23 @@
 
       const savedVotes = await fetch(`${VOTES_API}?id=${state.debateId}`).then(r => r.json()).catch(() => ({ aye: 0, nay: 0 }));
       state.votes = savedVotes;
-      document.getElementById('vote-card').style.display = 'block';
+            const isLive = (Date.now() - new Date(state.debateTimestamp || Date.now())) < 48 * 60 * 60 * 1000;
+      const alreadyVoted = localStorage.getItem('voted:' + state.debateId);
+      if (!isLive) {
+        document.getElementById('vote-card').style.display = 'block';
+        document.getElementById('vote-confirm').style.display = 'block';
+        document.getElementById('vote-confirm').textContent = 'Voting closed. This debate has ended.';
+        document.getElementById('btn-aye').style.pointerEvents = 'none';
+        document.getElementById('btn-nay').style.pointerEvents = 'none';
+      } else if (alreadyVoted) {
+        state.voted = true;
+        document.getElementById('vote-card').style.display = 'block';
+        document.getElementById('btn-' + alreadyVoted).classList.add('chosen');
+        document.getElementById('vote-confirm').style.display = 'block';
+        document.getElementById('vote-confirm').textContent = 'You have already voted on this debate.';
+      } else {
+        document.getElementById('vote-card').style.display = 'block';
+      }
       updateBar();
 
     } catch (err) {
@@ -504,9 +522,12 @@
     }
   }
 
-  async function castVote(side) {
+    async function castVote(side) {
     if (state.voted || !state.debateId) return;
+    const storageKey = 'voted:' + state.debateId;
+    if (localStorage.getItem(storageKey)) return;
     state.voted = true;
+    localStorage.setItem(storageKey, side);
     document.getElementById('btn-' + side).classList.add('chosen');
     document.getElementById('vote-confirm').style.display = 'block';
     try {
@@ -559,25 +580,26 @@
       debates.forEach(d => {
         const aye = d.votes?.aye || 0;
         const nay = d.votes?.nay || 0;
-        const total = aye + nay;
+                const total = aye + nay;
+        const isLive = d.timestamp && (Date.now() - new Date(d.timestamp).getTime()) < 48 * 60 * 60 * 1000;
         const forNames = Array.isArray(d.forAgents) ? d.forAgents.map(a => a.name || 'Agent').join(', ') : 'Unknown';
         const againstNames = Array.isArray(d.againstAgents) ? d.againstAgents.map(a => a.name || 'Agent').join(', ') : 'Unknown';
         const date = d.timestamp ? new Date(d.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recent';
         const card = document.createElement('div');
         card.className = 'archive-card';
-       card.onclick = () => openArchivedDebate(d);
-        card.innerHTML = `
-          <div class="archive-topic">${d.topic || 'Untitled debate'}</div>
-          <div class="archive-meta">
-            <span>${date}</span>
-            <span>${forNames} vs ${againstNames}</span>
-          </div>
-          <div class="archive-votes" style="margin-top:8px;">
-            <span class="aye-count">${aye} aye</span>
-            <span style="color:var(--border-mid)">·</span>
-            <span class="nay-count">${nay} nay</span>
-            ${total === 0 ? '<span class="status-live">live</span>' : ''}
-          </div>`;
+        card.onclick = () => openArchivedDebate(d);
+        card.innerHTML =
+          '<div class="archive-topic">' + (d.topic || 'Untitled debate') + '</div>' +
+          '<div class="archive-meta">' +
+          '<span>' + date + '</span>' +
+          '<span>' + forNames + ' vs ' + againstNames + '</span>' +
+          (isLive ? '<span class="status-live">live</span>' : '') +
+          '</div>' +
+          '<div class="archive-votes" style="margin-top:8px;">' +
+          '<span class="aye-count">' + aye + ' aye</span>' +
+          '<span style="color:var(--border-mid)"> · </span>' +
+          '<span class="nay-count">' + nay + ' nay</span>' +
+          '</div>';
         list.appendChild(card);
       });
     } catch (e) {
@@ -641,14 +663,28 @@
         if (agent) appendArg(agent, arg.side, arg.text, arg.round, idx * 50);
       });
     }
-    state.votes = { aye: d.votes?.aye || 0, nay: d.votes?.nay || 0 };
-    state.voted = false;
+        state.votes = { aye: d.votes?.aye || 0, nay: d.votes?.nay || 0 };
     state.debateId = d.id;
     state.topic = d.topic;
+    state.debateTimestamp = d.timestamp;
+    const isLive = d.timestamp && (Date.now() - new Date(d.timestamp).getTime()) < 48 * 60 * 60 * 1000;
+    const alreadyVoted = localStorage.getItem('voted:' + d.id);
+    state.voted = !isLive || !!alreadyVoted;
     document.getElementById('vote-card').style.display = 'block';
-    document.getElementById('vote-confirm').style.display = 'none';
     document.getElementById('btn-aye').classList.remove('chosen');
     document.getElementById('btn-nay').classList.remove('chosen');
+    document.getElementById('btn-aye').style.pointerEvents = isLive && !alreadyVoted ? 'auto' : 'none';
+    document.getElementById('btn-nay').style.pointerEvents = isLive && !alreadyVoted ? 'auto' : 'none';
+    if (alreadyVoted) {
+      document.getElementById('btn-' + alreadyVoted).classList.add('chosen');
+      document.getElementById('vote-confirm').style.display = 'block';
+      document.getElementById('vote-confirm').textContent = 'You have already voted on this debate.';
+    } else if (!isLive) {
+      document.getElementById('vote-confirm').style.display = 'block';
+      document.getElementById('vote-confirm').textContent = 'Voting closed. This debate has ended.';
+    } else {
+      document.getElementById('vote-confirm').style.display = 'none';
+    }
     updateBar();
     switchTab('debate');
     showPhase('debate');
