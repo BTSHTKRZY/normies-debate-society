@@ -591,52 +591,39 @@
     content.innerHTML = '';
     loading.style.display = 'block';
     try {
-    const data = await fetch(ARCHIVE_API + '?t=' + Date.now()).then(r => r.json());
-    console.log('Archive data:', JSON.stringify(data));
+      const r = await fetch(LB_API + '?nocache=' + Date.now() + '&r=' + Math.random());
+      const data = await r.json();
       loading.style.display = 'none';
       const lb = data.leaderboard || [];
       if (lb.length === 0) {
         content.innerHTML = '<div class="empty-state"><div class="empty-icon">🏆</div>No standings yet. Complete a debate and cast votes to populate the leaderboard.</div>';
         return;
       }
-      const table = document.createElement('table');
-      table.className = 'leaderboard-table';
-      table.innerHTML = `
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Agent</th>
-            <th>W</th>
-            <th>L</th>
-            <th>Appearances</th>
-            <th>Win Rate</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${lb.map((a, i) => {
-            const rateClass = a.winRate >= 60 ? 'high' : a.winRate >= 40 ? 'mid' : 'low';
-            return `<tr>
-              <td><span class="lb-rank">${i + 1}</span></td>
-              <td>
-                <div class="lb-agent">
-                  <div class="lb-thumb"><img src="${NORMIES_API}/agents/image/${a.tokenId}" alt="Agent" loading="lazy"></div>
-                  <div>
-                    <div class="lb-name">Agent #${a.tokenId}</div>
-                    <div class="lb-token">${a.appearances} debates</div>
-                  </div>
-                </div>
-              </td>
-              <td>${a.wins}</td>
-              <td>${a.losses}</td>
-              <td>${a.appearances}</td>
-              <td><span class="win-rate ${rateClass}">${a.winRate}%</span></td>
-            </tr>`;
-          }).join('')}
-        </tbody>`;
-      content.appendChild(table);
+      let html = '<table class="leaderboard-table">';
+      html += '<thead><tr><th>#</th><th>Agent</th><th>W</th><th>L</th><th>Apps</th><th>Win Rate</th></tr></thead>';
+      html += '<tbody>';
+      for (let i = 0; i < lb.length; i++) {
+        const a = lb[i];
+        const rateClass = a.winRate >= 60 ? 'high' : a.winRate >= 40 ? 'mid' : 'low';
+        const agentName = a.name || ('Agent #' + a.tokenId);
+        html += '<tr>';
+        html += '<td><span class="lb-rank">' + (i + 1) + '</span></td>';
+        html += '<td><div class="lb-agent">';
+        html += '<div class="lb-thumb"><img src="' + NORMIES_API + '/agents/image/' + a.tokenId + '" alt="' + agentName + '" loading="lazy"></div>';
+        html += '<div><div class="lb-name">' + agentName + '</div>';
+        html += '<div class="lb-token">#' + a.tokenId + '</div></div></div></td>';
+        html += '<td>' + a.wins + '</td>';
+        html += '<td>' + a.losses + '</td>';
+        html += '<td>' + a.appearances + '</td>';
+        html += '<td><span class="win-rate ' + rateClass + '">' + a.winRate + '%</span></td>';
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+      content.innerHTML = html;
     } catch (e) {
       loading.style.display = 'none';
       content.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div>Could not load leaderboard.</div>';
+      console.error('Leaderboard error:', e);
     }
   }
 </script>
