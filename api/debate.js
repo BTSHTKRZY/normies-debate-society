@@ -105,9 +105,11 @@ async function generateFullDebate(apiKey, forAgents, againstAgents, topic, resea
     var forAgent = forAgents[round - 1];
     var againstAgent = againstAgents[round - 1];
 
-    var historyBlock = prior.length > 0
-      ? '\n\nPrior arguments:\n' + prior.map(function(p) {
-          return p.name + ' (' + (p.side === 'for' ? 'FOR' : 'AGAINST') + '): ' + p.text;
+      var recentPrior = prior.slice(-2);
+  var historyBlock = recentPrior.length > 0
+      ? '\n\nMost recent arguments:\n' + recentPrior.map(function(p) {
+          var shortText = p.text.length > 150 ? p.text.slice(0, 150) + '...' : p.text;
+          return p.name + ' (' + (p.side === 'for' ? 'FOR' : 'AGAINST') + '): ' + shortText;
         }).join('\n\n')
       : '';
 
@@ -128,8 +130,10 @@ async function generateFullDebate(apiKey, forAgents, againstAgents, topic, resea
       round: round
     });
 
-    var updatedHistory = '\n\nPrior arguments:\n' + prior.map(function(p) {
-      return p.name + ' (' + (p.side === 'for' ? 'FOR' : 'AGAINST') + '): ' + p.text;
+      var recentUpdated = prior.slice(-2);
+  var updatedHistory = '\n\nMost recent arguments:\n' + recentUpdated.map(function(p) {
+      var shortText = p.text.length > 150 ? p.text.slice(0, 150) + '...' : p.text;
+      return p.name + ' (' + (p.side === 'for' ? 'FOR' : 'AGAINST') + '): ' + shortText;
     }).join('\n\n');
 
     var againstSystem = buildCharacter(againstAgent) +
