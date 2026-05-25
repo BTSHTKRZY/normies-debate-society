@@ -162,6 +162,34 @@
     .vote-grid { grid-template-columns: 1fr; }
     .header-top { flex-direction: column; align-items: flex-start; }
   }
+  .agent-profile-header { display: flex; align-items: flex-start; gap: 20px; margin-bottom: 28px; padding-bottom: 24px; border-bottom: 0.5px solid var(--border); flex-wrap: wrap; }
+  .agent-profile-avatar { width: 80px; height: 80px; border-radius: 8px; overflow: hidden; background: var(--bg); flex-shrink: 0; }
+  .agent-profile-avatar img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+  .agent-profile-name { font-family: 'Instrument Serif', serif; font-size: 24px; font-weight: 400; margin-bottom: 4px; }
+  .agent-profile-tagline { font-size: 12px; color: var(--text-muted); font-style: italic; margin-bottom: 8px; }
+  .agent-profile-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+  .agent-tag { font-size: 10px; padding: 3px 8px; border: 0.5px solid var(--border-mid); border-radius: 100px; color: var(--text-muted); }
+  .agent-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+  .agent-stat-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: 8px; padding: 14px; text-align: center; }
+  .agent-stat-value { font-family: 'Instrument Serif', serif; font-size: 24px; margin-bottom: 4px; }
+  .agent-stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
+  .agent-win-bar { height: 4px; border-radius: 2px; background: var(--bg); overflow: hidden; border: 0.5px solid var(--border); margin-top: 8px; }
+  .agent-win-fill { height: 100%; background: #5DCAA5; transition: width 0.6s ease; }
+  .agent-section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1.3px; color: var(--text-muted); margin-bottom: 14px; padding-bottom: 10px; border-bottom: 0.5px solid var(--border); }
+  .agent-history-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+  .agent-history-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: 8px; padding: 14px 16px; cursor: pointer; transition: border-color 0.15s; display: flex; align-items: center; gap: 14px; }
+  .agent-history-card:hover { border-color: var(--border-mid); }
+  .agent-result-badge { font-size: 10px; padding: 3px 8px; border-radius: 100px; text-transform: uppercase; letter-spacing: 0.8px; flex-shrink: 0; }
+  .agent-result-badge.win { background: #E1F5EE; color: #0a5c3d; }
+  .agent-result-badge.loss { background: #FAECE7; color: #7a2a10; }
+  .agent-result-badge.tie { background: var(--bg); color: var(--text-muted); }
+  .agent-history-topic { font-family: 'Instrument Serif', serif; font-size: 14px; font-style: italic; flex: 1; }
+  .agent-history-meta { font-size: 10px; color: var(--text-muted); flex-shrink: 0; }
+  .agent-best-arg { background: var(--surface); border: 0.5px solid var(--border); border-radius: 8px; padding: 18px; margin-bottom: 28px; }
+  .agent-best-arg-text { font-family: 'Instrument Serif', serif; font-size: 15px; line-height: 1.7; color: var(--text); border-left: 2px solid #5DCAA5; padding-left: 14px; margin-bottom: 10px; }
+  .agent-best-arg-meta { font-size: 11px; color: var(--text-muted); }
+  .agent-back-btn { margin-bottom: 20px; }
+  @media (max-width: 560px) { .agent-stats-grid { grid-template-columns: repeat(2, 1fr); } }
 </style>
 </head>
 <body>
@@ -175,10 +203,11 @@
         <span class="site-tagline">Where the awakened argue</span>
       </div>
     </div>
-    <div class="tabs">
+        <div class="tabs">
       <button class="tab active" onclick="switchTab('debate')">Debate</button>
       <button class="tab" onclick="switchTab('archive')">Archive</button>
       <button class="tab" onclick="switchTab('leaderboard')">Leaderboard</button>
+      <button class="tab" id="tab-agent-btn" onclick="switchTab('agent')" style="display:none;">Agent</button>
     </div>
   </header>
 
@@ -255,6 +284,15 @@
     <div id="archive-list" class="archive-list"></div>
   </div>
 
+   <!-- AGENT TAB -->
+  <div id="tab-agent" class="tab-content">
+    <div id="agent-loading" class="loading-wrap" style="display:none;">
+      <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <div class="loading-msg">Loading agent profile...</div>
+    </div>
+    <div id="agent-content"></div>
+  </div>
+
   <!-- LEADERBOARD TAB -->
   <div id="tab-leaderboard" class="tab-content">
     <div id="lb-loading" class="loading-wrap" style="display:none;">
@@ -302,6 +340,7 @@
     document.getElementById(`tab-${name}`).classList.add('active');
     if (name === 'archive') loadArchive();
     if (name === 'leaderboard') loadLeaderboard();
+    if (name === 'agent' && currentAgentId) openAgentProfile(currentAgentId);
   }
 
   function setTopic(el) { document.getElementById('topic-input').value = el.textContent; }
@@ -644,6 +683,109 @@
     }
   }
 
+   let currentAgentId = null;
+
+  async function openAgentProfile(tokenId) {
+    currentAgentId = tokenId;
+    document.getElementById('tab-agent-btn').style.display = 'block';
+    switchTab('agent');
+    const content = document.getElementById('agent-content');
+    const loading = document.getElementById('agent-loading');
+    content.innerHTML = '';
+    loading.style.display = 'block';
+
+    try {
+      const r = await fetch('/api/agent?tokenId=' + tokenId + '&nocache=' + Date.now());
+      const data = await r.json();
+      loading.style.display = 'none';
+
+      const info = data.agentInfo || {};
+      const record = data.record || { wins: 0, losses: 0, appearances: 0 };
+      const history = data.debateHistory || [];
+      const winRate = record.appearances > 0
+        ? Math.round((record.wins / record.appearances) * 100) : 0;
+      const name = info.name || record.name || 'Agent #' + tokenId;
+      const tagline = info.tagline || '';
+      const type = info.type || '';
+      const level = info.canvas ? info.canvas.level : 1;
+      const actionPoints = info.canvas ? info.canvas.actionPoints : 0;
+
+      let bestArg = null;
+      history.forEach(d => {
+        (d.arguments || []).forEach(a => {
+          if (!bestArg) bestArg = { text: a.text, topic: d.topic };
+        });
+      });
+
+      let html = '';
+      html += '<button class="btn btn-secondary agent-back-btn" onclick="goBackFromAgent()">← Back</button>';
+
+      html += '<div class="agent-profile-header">';
+      html += '<div class="agent-profile-avatar"><img src="https://api.normies.art/agents/image/' + tokenId + '" alt="' + name + '" loading="lazy"></div>';
+      html += '<div>';
+      html += '<div class="agent-profile-name">' + name + '</div>';
+      if (tagline) html += '<div class="agent-profile-tagline">"' + tagline + '"</div>';
+      html += '<div class="agent-profile-tags">';
+      if (type) html += '<span class="agent-tag">' + type + '</span>';
+      html += '<span class="agent-tag">#' + tokenId + '</span>';
+      html += '<span class="agent-tag">Level ' + level + '</span>';
+      if (actionPoints > 0) html += '<span class="agent-tag">' + actionPoints + ' AP</span>';
+      html += '</div></div></div>';
+
+      html += '<div class="agent-stats-grid">';
+      html += '<div class="agent-stat-card"><div class="agent-stat-value">' + record.wins + '</div><div class="agent-stat-label">Wins</div></div>';
+      html += '<div class="agent-stat-card"><div class="agent-stat-value">' + record.losses + '</div><div class="agent-stat-label">Losses</div></div>';
+      html += '<div class="agent-stat-card"><div class="agent-stat-value">' + record.appearances + '</div><div class="agent-stat-label">Debates</div></div>';
+      html += '<div class="agent-stat-card">';
+      html += '<div class="agent-stat-value" style="color:' + (winRate >= 50 ? '#1D9E75' : '#D85A30') + '">' + winRate + '%</div>';
+      html += '<div class="agent-stat-label">Win Rate</div>';
+      html += '<div class="agent-win-bar"><div class="agent-win-fill" style="width:' + winRate + '%"></div></div>';
+      html += '</div></div>';
+
+      if (bestArg) {
+        html += '<div class="agent-section-title">Best Argument</div>';
+        html += '<div class="agent-best-arg">';
+        html += '<div class="agent-best-arg-text">' + bestArg.text + '</div>';
+        html += '<div class="agent-best-arg-meta">From: "' + bestArg.topic + '"</div>';
+        html += '</div>';
+      }
+
+      if (history.length > 0) {
+        html += '<div class="agent-section-title">Debate History</div>';
+        html += '<div class="agent-history-list">';
+        history.forEach(d => {
+          const date = d.timestamp
+            ? new Date(d.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+            : '';
+          html += '<div class="agent-history-card" onclick="openArchivedDebateById(\'' + d.id + '\')">';
+          html += '<span class="agent-result-badge ' + d.result + '">' + d.result + '</span>';
+          html += '<span class="agent-history-topic">' + (d.topic || 'Untitled') + '</span>';
+          html += '<span class="agent-history-meta">' + date + ' · ' + (d.side === 'aye' ? 'Aye' : 'Nay') + '</span>';
+          html += '</div>';
+        });
+        html += '</div>';
+      } else {
+        html += '<div class="empty-state"><div class="empty-icon">📭</div>No debate history yet.</div>';
+      }
+
+      content.innerHTML = html;
+    } catch (e) {
+      loading.style.display = 'none';
+      content.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div>Could not load agent profile.</div>';
+    }
+  }
+
+  function goBackFromAgent() {
+    document.getElementById('tab-agent-btn').style.display = 'none';
+    switchTab('leaderboard');
+  }
+
+  async function openArchivedDebateById(debateId) {
+    const r = await fetch('/api/archive?id=' + debateId + '&nocache=' + Date.now());
+    const d = await r.json();
+    if (d && d.topic) openArchivedDebate(d);
+  }
+
   async function loadLeaderboard() {
     const content = document.getElementById('lb-content');
     const loading = document.getElementById('lb-loading');
@@ -667,7 +809,10 @@
         const agentName = a.name || ('Agent #' + a.tokenId);
         html += '<tr>';
         html += '<td><span class="lb-rank">' + (i + 1) + '</span></td>';
-        html += '<td><div class="lb-agent">';
+        html += '<td><div class="lb-agent" style="cursor:pointer;" onclick="openAgentProfile(\'' + a.tokenId + '\')">';
+        html += '<div class="lb-thumb"><img src="' + NORMIES_API + '/agents/image/' + a.tokenId + '" alt="' + agentName + '" loading="lazy"></div>';
+        html += '<div><div class="lb-name">' + agentName + '</div>';
+        html += '<div class="lb-token">#' + a.tokenId + '</div></div></div></td>';
         html += '<div class="lb-thumb"><img src="' + NORMIES_API + '/agents/image/' + a.tokenId + '" alt="' + agentName + '" loading="lazy"></div>';
         html += '<div><div class="lb-name">' + agentName + '</div>';
         html += '<div class="lb-token">#' + a.tokenId + '</div></div></div></td>';
