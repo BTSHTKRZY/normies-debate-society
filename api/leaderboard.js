@@ -16,7 +16,7 @@ module.exports = async function handler(req, res) {
            const timeoutMs = 8000;
     const deadline = Date.now() + timeoutMs;
 
-    const ids = await redis.lrange('debate:index', 0, 19);
+    const ids = await redis.lrange('debate:index', 0, 9);
     const agentIds = new Set();
 
     for (const id of ids) {
