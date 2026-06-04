@@ -52,22 +52,15 @@ function buildCharacter(agent) {
   var name = agent.name || 'Agent';
   var type = agent.type || 'Human';
   var tagline = agent.tagline || '';
-  var traits = Array.isArray(agent.personalityTraits)
-    ? agent.personalityTraits.slice(0, 3).join(', ')
-    : '';
-  var style = agent.communicationStyle
-    ? agent.communicationStyle.slice(0, 150)
-    : '';
-  return 'You are ' + name + ', a ' + type + ' from the Normies NFT collection on Ethereum. ' +
-    (tagline ? 'Your tagline: "' + tagline + '". ' : '') +
-    (traits ? 'Your personality: ' + traits + '. ' : '') +
-    (style ? 'Your communication style: ' + style : '');
+  return 'You are ' + name + ', a ' + type + 
+    ' from the Normies NFT collection.' +
+    (tagline ? ' "' + tagline + '"' : '');
 }
 
 async function generateArgument(apiKey, systemPrompt, userMessage) {
   var response = await callAnthropic(apiKey, {
     model: 'claude-sonnet-4-5',
-    max_tokens: 300,
+    max_tokens: 200,
     system: systemPrompt,
     messages: [{ role: 'user', content: userMessage }]
   });
@@ -80,7 +73,7 @@ async function researchTopic(apiKey, topic) {
   try {
     var response = await callAnthropic(apiKey, {
       model: 'claude-sonnet-4-5',
-      max_tokens: 400,
+      max_tokens: 200,
       tools: [{ type: 'web_search_20250305', name: 'web_search' }],
       messages: [{
         role: 'user',
