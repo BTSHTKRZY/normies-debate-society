@@ -5,6 +5,7 @@
     "api/roast.js": { "maxDuration": 300 },
     "api/votes.js": { "maxDuration": 10 },
     "api/roastvotes.js": { "maxDuration": 10 },
+    "api/roastarchive.js": { "maxDuration": 10 },
     "api/archive.js": { "maxDuration": 10 },
     "api/leaderboard.js": { "maxDuration": 30 },
     "api/agent.js": { "maxDuration": 30 }
@@ -14,6 +15,7 @@
     { "src": "/api/roast", "dest": "/api/roast.js" },
     { "src": "/api/votes", "dest": "/api/votes.js" },
     { "src": "/api/roastvotes", "dest": "/api/roastvotes.js" },
+    { "src": "/api/roastarchive", "dest": "/api/roastarchive.js" },
     { "src": "/api/archive", "dest": "/api/archive.js" },
     { "src": "/api/leaderboard", "dest": "/api/leaderboard.js" },
     { "src": "/api/agent", "dest": "/api/agent.js" },
