@@ -138,12 +138,14 @@ function roastSystem(voice, teamName, oppNames, topic) {
     ? 'The roast is loosely themed around: "' + topic + '". Work it in, but the real target is the other side.'
     : 'This is an open roast — go after the other side directly.';
   return voice +
-    '\n\n=== ROAST BATTLE ===' +
+    '\n\n=== ROAST BATTLE RULES ===' +
     '\nYou are fighting for Team ' + teamName + '. Your opponents: ' + oppNames + '.' +
     '\n' + topicLine +
-    '\nDeliver ONE roast burn, fully in character. 2-3 sentences MAX. No stage directions, no asterisks, no introducing yourself.' +
-    '\nBe witty, sharp, and edgy — but PG-13: no slurs, no truly cruel or hateful content. Punch at their vibe, their ecosystem, their pretensions — comedy, not malice.' +
-    '\nReact to the previous burn if there is one. Land a quotable line.';
+    '\nDeliver ONE roast burn, fully in character as yourself. 2-3 sentences MAX.' +
+    '\nCRAFT: the best burns pick ONE trait of the opponent (their vibe, their whole ecosystem, their pretensions) and hit it from a fresh angle. Set up, then land a punchline. Callbacks to earlier lines are gold. Subvert expectations — the funniest hit is the unexpected one.' +
+    '\nESCALATE: each round should be sharper than the last. If they burned you, flip it back so it lands on THEM even harder before you throw your own.' +
+    '\nTONE: witty, sharp, edgy — but PG-13. No slurs, no genuinely cruel or hateful content. This is playful combat between friends\' ecosystems — punch at vibe and pretension, roast to make people laugh, not to wound. If it stops being funny and just becomes mean, you\'ve lost.' +
+    '\nFORMAT: no stage directions, no asterisks, no emoji, no introducing yourself, no quotation marks around your whole line. Just say the burn. Make it screenshot-worthy.';
 }
 
 async function generateBurn(apiKey, systemPrompt, userMessage) {
@@ -159,35 +161,52 @@ async function generateBurn(apiKey, systemPrompt, userMessage) {
 }
 
 // normieTeam / brainrotTeam: arrays of { id, name, voice }
-// rounds: how many exchanges per fighter slot
+// rounds: how many exchanges (1-3). Each round ESCALATES and rejoins.
+var ROUND_BRIEFS = {
+  1: 'This is the OPENING round. Establish your angle of attack on the other side — pick a characteristic (their vibe, their whole ecosystem, their pretensions) you can keep hitting. Land a clean first jab.',
+  2: 'This is the REBUTTAL round. First, bat away the burn just thrown at you (deny it, or flip it back so it applies to THEM even more), THEN escalate your own attack. Callback to what you established. Get sharper.',
+  3: 'This is the CLOSING round. This is your mic-drop. Tie the whole thread together, deliver your single most quotable, devastating-but-playful line, and end it. Make it screenshot-worthy.'
+};
+
+function roundBrief(round, totalRounds) {
+  if (totalRounds === 1) return ROUND_BRIEFS[1] + ' Make it your single best shot — quotable and clean.';
+  if (round === totalRounds) return ROUND_BRIEFS[3];
+  return ROUND_BRIEFS[round] || ROUND_BRIEFS[2];
+}
+
 async function generateRoast(apiKey, normieTeam, brainrotTeam, topic, rounds) {
   var prior = [];
   var results = [];
   var normieNames = normieTeam.map(function (f) { return f.name; }).join(', ');
   var brainrotNames = brainrotTeam.map(function (f) { return f.name; }).join(', ');
-  var n = Math.max(normieTeam.length, brainrotTeam.length);
-  var totalRounds = rounds || 3;
+  var totalRounds = Math.min(3, Math.max(1, rounds || 3));
+
+  // Build a running transcript so each fighter can react + callback.
+  function transcriptBlock() {
+    if (!prior.length) return '';
+    return '\n\nThe roast so far (react to this, especially the most recent line):\n' +
+      prior.map(function (p) { return p.name + ' (' + p.team + '): "' + p.text + '"'; }).join('\n');
+  }
 
   for (var round = 1; round <= totalRounds; round++) {
-    // Normie fighter for this round (cycle if teams uneven)
     var nf = normieTeam[(round - 1) % normieTeam.length];
     var bf = brainrotTeam[(round - 1) % brainrotTeam.length];
+    var brief = roundBrief(round, totalRounds);
 
-    // Normie throws first this round
-    var lastBurn = prior.length ? prior[prior.length - 1] : null;
-    var nHist = lastBurn
-      ? '\n\nThe last burn came from ' + lastBurn.name + ' (' + lastBurn.team + '): "' + lastBurn.text + '"\nClap back.'
-      : '';
+    // NORMIE throws
     var nSys = roastSystem(nf.voice, 'NORMIES', brainrotNames, topic);
-    var nUser = 'Deliver your roast burn against Team BRAINROT' + nHist;
+    var nUser = 'Round ' + round + ' of ' + totalRounds + '. ' + brief +
+      transcriptBlock() +
+      '\n\nNow deliver YOUR next burn against Team BRAINROT (' + brainrotNames + '), in character as ' + nf.name + '.';
     var nText = await generateBurn(apiKey, nSys, nUser);
     prior.push({ name: nf.name, team: 'NORMIES', text: nText });
     results.push({ fighter: nf.id, name: nf.name, team: 'normies', text: nText, round: round });
 
-    // BRAINROT claps back
+    // BRAINROT claps back (sees the Normie's fresh burn in the transcript)
     var bSys = roastSystem(bf.voice, 'BRAINROT', normieNames, topic);
-    var bUser = 'Deliver your roast burn against Team NORMIES' +
-      '\n\nThe last burn came from ' + nf.name + ' (NORMIES): "' + nText + '"\nClap back harder.';
+    var bUser = 'Round ' + round + ' of ' + totalRounds + '. ' + brief +
+      transcriptBlock() +
+      '\n\nNow deliver YOUR next burn against Team NORMIES (' + normieNames + '), in character as ' + bf.name + '. React to ' + nf.name + '\'s line and hit back harder.';
     var bText = await generateBurn(apiKey, bSys, bUser);
     prior.push({ name: bf.name, team: 'BRAINROT', text: bText });
     results.push({ fighter: bf.id, name: bf.name, team: 'brainrot', text: bText, round: round });
