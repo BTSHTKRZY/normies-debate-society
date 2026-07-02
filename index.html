@@ -283,6 +283,21 @@
 .tab.tab-roast-accent { color: var(--brainrot); font-weight: 500; }
 .tab.tab-roast-accent.active { border-bottom-color: var(--brainrot); }
 
+
+/* ── VERSUS CARD PANEL ── */
+.roast-card-panel { background: var(--surface); border: 0.5px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+.card-panel-head { font-family: 'Instrument Serif', serif; font-size: 20px; margin-bottom: 4px; }
+.card-panel-sub { font-size: 11px; color: var(--text-muted); margin-bottom: 16px; }
+.card-pick-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 8px; }
+@media (max-width: 560px) { .card-pick-cols { grid-template-columns: 1fr; } }
+.card-pick-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 10px; }
+.card-pick-title.normies { color: var(--normie); }
+.card-pick-title.brainrot { color: var(--brainrot); }
+.card-line-opt { font-size: 12px; line-height: 1.45; padding: 10px 12px; border: 0.5px solid var(--border); border-radius: 8px; margin-bottom: 8px; cursor: pointer; color: var(--text-muted); transition: all 0.15s; background: var(--bg); }
+.card-line-opt:hover { border-color: var(--border-mid); color: var(--text); }
+.card-line-opt.sel { border-color: var(--text); color: var(--text); background: var(--surface); box-shadow: inset 3px 0 0 var(--text); }
+.card-line-r { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-hint); margin-right: 6px; }
+
 </style>
 </head>
 <body>
@@ -427,8 +442,14 @@
     <div class="roast-clash" id="roast-clash"></div>
     <div class="roast-thread" id="roast-thread"></div>
 
-    <div class="roast-card-suggest" id="roast-card-suggest" style="display:none;">
-      <span>Make a card from any burn — tap ★ on the line that cooked hardest.</span>
+    <div class="roast-card-panel" id="roast-card-panel" style="display:none;">
+      <div class="card-panel-head">Make a shareable card</div>
+      <div class="card-panel-sub">One card, the best line from each side. We picked each side\'s mic-drop — tap another line to swap.</div>
+      <div class="card-pick-cols">
+        <div class="card-pick-normies"></div>
+        <div class="card-pick-brainrot"></div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="makeVersusCard()">Download the card ↓</button>
     </div>
 
     <div class="roast-share-row">
@@ -1239,7 +1260,6 @@ function appendBurn(burn, idx) {
          : `<span class="burn-tag brainrot">BRAINROT</span><span class="burn-name">${burn.name}</span>`}
        </div>
        <div class="burn-text">${burn.text}</div>
-       <button class="burn-card-btn" onclick="makeCard(${idx})">★ make card</button>
      </div>`;
   const thumbHtml = `<div class="burn-thumb"><img src="${imgSrc}" alt="${burn.name}" crossorigin="anonymous" loading="lazy"></div>`;
   block.innerHTML = isNormie ? thumbHtml + bodyHtml : bodyHtml + thumbHtml;
@@ -1310,13 +1330,53 @@ function resetRoast() {
   showRoastPhase('pick');
 }
 
-/* ── BURN CARD (canvas render, photo w/ typographic fallback) ──────────── */
+/* ── CARD PICKER (auto-suggest each side's mic-drop, allow swap) ────────── */
 function suggestCard() {
-  // auto-suggest: pick the last burn (the closer / mic-drop) as a suggested card
-  const suggest = document.getElementById('roast-card-suggest');
-  if (suggest) suggest.style.display = 'flex';
+  roastState.cardPick = { normies: bestLineIndex('normies'), brainrot: bestLineIndex('brainrot') };
+  renderCardPicker();
+  const panel = document.getElementById('roast-card-panel');
+  if (panel) panel.style.display = 'block';
 }
 
+// Auto "best" line for a side = that side's LAST line (its closing mic-drop).
+function bestLineIndex(team) {
+  let best = -1;
+  for (let i = 0; i < roastState.results.length; i++) {
+    if (roastState.results[i].team === team) best = i;
+  }
+  return best;
+}
+
+function sideLines(team) {
+  const out = [];
+  roastState.results.forEach((r, i) => { if (r.team === team) out.push({ i: i, text: r.text, name: r.name, round: r.round }); });
+  return out;
+}
+
+function renderCardPicker() {
+  const panel = document.getElementById('roast-card-panel');
+  if (!panel) return;
+  const nLines = sideLines('normies');
+  const bLines = sideLines('brainrot');
+  const nSel = roastState.cardPick.normies;
+  const bSel = roastState.cardPick.brainrot;
+  const opt = (line, selIdx, team) =>
+    '<div class="card-line-opt ' + (line.i === selIdx ? 'sel' : '') + '" onclick="pickCardLine(\'' + team + '\', ' + line.i + ')">' +
+    '<span class="card-line-r">R' + line.round + '</span> ' + line.text + '</div>';
+  panel.querySelector('.card-pick-normies').innerHTML =
+    '<div class="card-pick-title normies">' + roastState.normies.map(n => n.name).join(', ') + ' — pick a line</div>' +
+    nLines.map(l => opt(l, nSel, 'normies')).join('');
+  panel.querySelector('.card-pick-brainrot').innerHTML =
+    '<div class="card-pick-title brainrot">' + roastState.brainrots.map(b => b.name).join(', ') + ' — pick a line</div>' +
+    bLines.map(l => opt(l, bSel, 'brainrot')).join('');
+}
+
+function pickCardLine(team, idx) {
+  roastState.cardPick[team] = idx;
+  renderCardPicker();
+}
+
+/* ── VERSUS HIGHLIGHTS CARD (one card, best line per side) ──────────────── */
 function loadImg(src) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -1340,131 +1400,134 @@ function wrapText(ctx, text, maxWidth) {
   return lines;
 }
 
-async function makeCard(idx) {
-  const burn = roastState.results[idx];
-  const isNormie = burn.team === 'normies';
-  const imgSrc = isNormie ? normieImg(burn.fighter) : brainrotImgUrl(burn.fighter);
+function roundRectPath(ctx, x, y, w, h, r) {
+  if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); return; }
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+async function drawSidePanel(ctx, opts) {
+  // opts: { x, y, w, h, accent, accentLight, teamLabel, name, text, imgSrc }
+  const { x, y, w, h, accent, accentLight, teamLabel, name, text, imgSrc } = opts;
+  // panel bg
+  ctx.fillStyle = '#ffffff';
+  roundRectPath(ctx, x, y, w, h, 20); ctx.fill();
+  // accent edge
+  ctx.fillStyle = accent;
+  roundRectPath(ctx, x, y, w, 8, 6); ctx.fill();
+
+  // photo
+  const photo = 150;
+  const px = x + 44, py = y + 44;
+  const img = await loadImg(imgSrc);
+  if (img) {
+    ctx.save();
+    roundRectPath(ctx, px, py, photo, photo, 16); ctx.clip();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, px, py, photo, photo);
+    ctx.restore();
+    ctx.strokeStyle = accent; ctx.lineWidth = 3;
+    roundRectPath(ctx, px, py, photo, photo, 16); ctx.stroke();
+  } else {
+    ctx.fillStyle = accentLight;
+    roundRectPath(ctx, px, py, photo, photo, 16); ctx.fill();
+    ctx.fillStyle = accent;
+    ctx.font = '400 96px "Instrument Serif", serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText((name || '?').charAt(0).toUpperCase(), px + photo / 2, py + photo / 2);
+  }
+  // team label + name (to right of photo)
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = accent;
+  ctx.font = '600 22px "DM Mono", monospace';
+  ctx.fillText(teamLabel, px + photo + 28, py + 40);
+  ctx.fillStyle = '#1a1916';
+  ctx.font = '400 44px "Instrument Serif", serif';
+  const nameLines = wrapText(ctx, name, w - photo - 100);
+  let ny = py + 90;
+  nameLines.slice(0, 2).forEach(l => { ctx.fillText(l, px + photo + 28, ny); ny += 46; });
+
+  // the line (quoted, italic)
+  ctx.fillStyle = '#1a1916';
+  ctx.font = 'italic 400 40px "Instrument Serif", serif';
+  const textY = py + photo + 60;
+  const lines = wrapText(ctx, '\u201C' + text + '\u201D', w - 88);
+  let ty = textY;
+  lines.slice(0, 5).forEach(l => { ctx.fillText(l, x + 44, ty); ty += 54; });
+}
+
+async function makeVersusCard() {
+  const nIdx = roastState.cardPick.normies;
+  const bIdx = roastState.cardPick.brainrot;
+  if (nIdx < 0 || bIdx < 0) { toast('Pick a line for each side'); return; }
+  const nBurn = roastState.results[nIdx];
+  const bBurn = roastState.results[bIdx];
 
   const W = 1080, H = 1350;
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
 
-  const accent = isNormie ? '#2B4C7E' : '#C2185B';
-  const accentLight = isNormie ? '#E8EEF6' : '#FCE4EC';
-  const teamLabel = isNormie ? 'NORMIES' : 'BRAINROT';
-
-  // Background
+  // bg
   ctx.fillStyle = '#f8f7f4'; ctx.fillRect(0, 0, W, H);
-  // Accent frame
-  ctx.strokeStyle = accent; ctx.lineWidth = 10;
-  ctx.strokeRect(28, 28, W - 56, H - 56);
-  // Top band
-  ctx.fillStyle = accent; ctx.fillRect(28, 28, W - 56, 96);
-  ctx.fillStyle = '#fff';
-  ctx.font = '600 34px "DM Mono", monospace';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('ROAST · ' + teamLabel, 60, 78);
-  ctx.textAlign = 'right';
-  ctx.font = '400 24px "DM Mono", monospace';
-  ctx.fillText('normies × brainrot', W - 60, 78);
-  ctx.textAlign = 'left';
+  ctx.strokeStyle = '#1a1916'; ctx.lineWidth = 8; ctx.strokeRect(24, 24, W - 48, H - 48);
 
-  // Fighter photo (with fallback)
-  const img = await loadImg(imgSrc);
-  const photoY = 168, photoSize = 360, photoX = (W - photoSize) / 2;
-  let tainted = false;
-  if (img) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.roundRect ? ctx.roundRect(photoX, photoY, photoSize, photoSize, 24) : ctx.rect(photoX, photoY, photoSize, photoSize);
-    ctx.closePath(); ctx.clip();
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(img, photoX, photoY, photoSize, photoSize);
-    ctx.restore();
-    ctx.strokeStyle = accent; ctx.lineWidth = 4;
-    ctx.strokeRect(photoX, photoY, photoSize, photoSize);
-  } else {
-    // typographic fallback: big initial in an accent tile
-    ctx.fillStyle = accentLight;
-    ctx.fillRect(photoX, photoY, photoSize, photoSize);
-    ctx.fillStyle = accent;
-    ctx.font = '400 200px "Instrument Serif", serif';
-    ctx.textAlign = 'center';
-    ctx.fillText((burn.name || '?').charAt(0).toUpperCase(), W / 2, photoY + photoSize / 2 + 10);
-    ctx.textAlign = 'left';
-  }
-
-  // Name
+  // header
   ctx.fillStyle = '#1a1916';
-  ctx.font = '400 60px "Instrument Serif", serif';
+  ctx.font = '400 56px "Instrument Serif", serif';
   ctx.textAlign = 'center';
-  ctx.fillText(burn.name, W / 2, photoY + photoSize + 70);
-
-  // Burn text (wrapped, quoted)
-  ctx.font = 'italic 400 46px "Instrument Serif", serif';
-  ctx.fillStyle = '#1a1916';
-  const maxW = W - 200;
-  const lines = wrapText(ctx, '“' + burn.text + '”', maxW);
-  let ty = photoY + photoSize + 170;
-  const lh = 62;
-  for (const ln of lines.slice(0, 8)) { ctx.fillText(ln, W / 2, ty); ty += lh; }
-
-  // Footer
+  ctx.fillText('The Roast', W / 2, 110);
   ctx.font = '400 26px "DM Mono", monospace';
-  ctx.fillStyle = accent;
-  ctx.fillText('the normies roast · normies-debate-society.vercel.app', W / 2, H - 70);
+  ctx.fillStyle = '#6b6860';
+  ctx.fillText('NORMIES  ×  BRAINROT', W / 2, 152);
   ctx.textAlign = 'left';
 
-  // Export
+  const panelW = W - 120, panelH = 470;
+  await drawSidePanel(ctx, {
+    x: 60, y: 200, w: panelW, h: panelH,
+    accent: '#2B4C7E', accentLight: '#E8EEF6', teamLabel: 'NORMIES',
+    name: nBurn.name, text: nBurn.text, imgSrc: normieImg(nBurn.fighter)
+  });
+
+  // VS divider
+  ctx.fillStyle = '#1a1916';
+  ctx.font = 'italic 400 44px "Instrument Serif", serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('vs', W / 2, 200 + panelH + 46);
+  ctx.textAlign = 'left';
+
+  await drawSidePanel(ctx, {
+    x: 60, y: 200 + panelH + 80, w: panelW, h: panelH,
+    accent: '#C2185B', accentLight: '#FCE4EC', teamLabel: 'BRAINROT',
+    name: bBurn.name, text: bBurn.text, imgSrc: brainrotImgUrl(bBurn.fighter)
+  });
+
+  // footer
+  ctx.fillStyle = '#6b6860';
+  ctx.font = '400 24px "DM Mono", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('normies-debate-society.vercel.app', W / 2, H - 60);
+  ctx.textAlign = 'left';
+
   try {
     canvas.toBlob(function (blob) {
       if (!blob) { toast('Card export blocked'); return; }
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'roast-' + (burn.name || 'card').replace(/[^a-z0-9]/gi, '-').toLowerCase() + '.png';
+      a.download = 'roast-card.png';
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 2000);
       toast('Card downloaded');
     }, 'image/png');
   } catch (e) {
-    // canvas tainted by cross-origin image → re-render typographic-only
-    toast('Photo blocked by host — rendering text card');
-    makeCardTypographic(idx);
+    toast('Image host blocked photos — card uses initials instead');
   }
-}
-
-async function makeCardTypographic(idx) {
-  const burn = roastState.results[idx];
-  const isNormie = burn.team === 'normies';
-  const W = 1080, H = 1350;
-  const canvas = document.createElement('canvas');
-  canvas.width = W; canvas.height = H;
-  const ctx = canvas.getContext('2d');
-  const accent = isNormie ? '#2B4C7E' : '#C2185B';
-  const accentLight = isNormie ? '#E8EEF6' : '#FCE4EC';
-  const teamLabel = isNormie ? 'NORMIES' : 'BRAINROT';
-  ctx.fillStyle = '#f8f7f4'; ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = accent; ctx.lineWidth = 10; ctx.strokeRect(28, 28, W - 56, H - 56);
-  ctx.fillStyle = accent; ctx.fillRect(28, 28, W - 56, 96);
-  ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle';
-  ctx.font = '600 34px "DM Mono", monospace';
-  ctx.fillText('ROAST · ' + teamLabel, 60, 78);
-  ctx.fillStyle = '#1a1916';
-  ctx.font = '400 72px "Instrument Serif", serif'; ctx.textAlign = 'center';
-  ctx.fillText(burn.name, W / 2, 260);
-  ctx.font = 'italic 400 52px "Instrument Serif", serif';
-  const lines = wrapText(ctx, '“' + burn.text + '”', W - 180);
-  let ty = 420; for (const ln of lines.slice(0, 10)) { ctx.fillText(ln, W / 2, ty); ty += 70; }
-  ctx.font = '400 26px "DM Mono", monospace'; ctx.fillStyle = accent;
-  ctx.fillText('the normies roast · normies-debate-society.vercel.app', W / 2, H - 70);
-  canvas.toBlob(function (blob) {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'roast-' + (burn.name || 'card').replace(/[^a-z0-9]/gi, '-').toLowerCase() + '.png';
-    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-    toast('Card downloaded');
-  }, 'image/png');
 }
 
 </script>
