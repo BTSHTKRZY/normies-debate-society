@@ -190,6 +190,82 @@
   .agent-best-arg-meta { font-size: 11px; color: var(--text-muted); }
   .agent-back-btn { margin-bottom: 20px; }
   @media (max-width: 560px) { .agent-stats-grid { grid-template-columns: repeat(2, 1fr); } }
+/* ═══ ROAST BATTLE — paste inside the <style> block, after existing rules ═══ */
+
+/* Two-ecosystem palette: Normies cool ink, BRAINROT hot magenta */
+:root {
+  --normie: #2B4C7E;         /* cool on-chain ink blue */
+  --normie-light: #E8EEF6;
+  --normie-mid: #6C8CBF;
+  --brainrot: #C2185B;       /* cursed hot magenta */
+  --brainrot-light: #FCE4EC;
+  --brainrot-mid: #E86A9B;
+}
+
+/* Versus clash header */
+.roast-clash { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; margin-bottom: 28px; }
+.roast-side { text-align: center; }
+.roast-side.normies .roast-side-label { color: var(--normie); }
+.roast-side.brainrot .roast-side-label { color: var(--brainrot); }
+.roast-side-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.6px; margin-bottom: 8px; font-weight: 500; }
+.roast-side-fighters { font-family: 'Instrument Serif', serif; font-size: 15px; font-style: italic; line-height: 1.35; }
+.roast-vs { font-family: 'Instrument Serif', serif; font-size: 22px; font-style: italic; color: var(--text-hint); }
+
+/* Fighter picker */
+.roast-picker-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+@media (max-width: 560px) { .roast-picker-grid { grid-template-columns: 1fr; } }
+.roast-pick-col { background: var(--surface); border: 0.5px solid var(--border); border-radius: 12px; padding: 16px; }
+.roast-pick-col.normies { border-top: 2px solid var(--normie); }
+.roast-pick-col.brainrot { border-top: 2px solid var(--brainrot); }
+.roast-pick-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1.4px; margin-bottom: 12px; }
+.roast-pick-col.normies .roast-pick-title { color: var(--normie); }
+.roast-pick-col.brainrot .roast-pick-title { color: var(--brainrot); }
+.roast-select { width: 100%; font-family: 'DM Mono', monospace; font-size: 12px; padding: 10px 12px; border: 0.5px solid var(--border-mid); border-radius: 8px; background: var(--bg); color: var(--text); margin-bottom: 10px; cursor: pointer; }
+.roast-select:focus { outline: none; border-color: #888; }
+.roast-picked-list { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.roast-picked-chip { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; padding: 6px 10px; border-radius: 6px; background: var(--bg); border: 0.5px solid var(--border); }
+.roast-picked-chip .rm { cursor: pointer; color: var(--text-hint); font-size: 13px; line-height: 1; }
+.roast-picked-chip .rm:hover { color: var(--against); }
+
+/* Mode toggle */
+.roast-mode-row { display: flex; gap: 8px; margin-bottom: 20px; }
+.roast-mode-btn { font-family: 'DM Mono', monospace; font-size: 11px; padding: 7px 14px; border: 0.5px solid var(--border-mid); border-radius: 100px; background: var(--surface); color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
+.roast-mode-btn.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+/* Burn cards */
+.roast-thread { margin-bottom: 32px; }
+.burn-block { display: grid; grid-template-columns: 44px 1fr; gap: 0 14px; margin-bottom: 26px; opacity: 0; animation: rise 0.45s ease forwards; }
+.burn-block.brainrot { grid-template-columns: 1fr 44px; }
+.burn-thumb { width: 44px; height: 44px; border-radius: 6px; overflow: hidden; background: var(--bg); align-self: start; margin-top: 2px; }
+.burn-thumb img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+.burn-block.brainrot .burn-thumb { grid-column: 2; grid-row: span 2; }
+.burn-block.brainrot .burn-body { grid-column: 1; grid-row: span 2; text-align: right; }
+.burn-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; flex-wrap: wrap; }
+.burn-block.brainrot .burn-meta { justify-content: flex-end; }
+.burn-name { font-size: 12px; font-weight: 500; }
+.burn-tag { font-size: 9px; padding: 2px 8px; border-radius: 100px; text-transform: uppercase; letter-spacing: 0.8px; }
+.burn-tag.normies { background: var(--normie-light); color: var(--normie); }
+.burn-tag.brainrot { background: var(--brainrot-light); color: var(--brainrot); }
+.burn-text { font-family: 'Instrument Serif', serif; font-size: 17px; line-height: 1.6; color: var(--text); padding-left: 15px; border-left: 2px solid var(--normie-mid); }
+.burn-block.brainrot .burn-text { padding-left: 0; padding-right: 15px; border-left: none; border-right: 2px solid var(--brainrot-mid); }
+
+/* Winner vote (which side won the roast) */
+.roast-vote-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 28px; }
+.roast-vote-heading { font-family: 'Instrument Serif', serif; font-size: 20px; margin-bottom: 6px; }
+.roast-vote-sub { font-size: 11px; color: var(--text-muted); margin-bottom: 20px; }
+.roast-vote-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+@media (max-width: 560px) { .roast-vote-grid { grid-template-columns: 1fr; } }
+.roast-vote-btn { font-family: 'DM Mono', monospace; font-size: 11px; padding: 16px 12px; border-radius: 8px; cursor: pointer; transition: all 0.15s; text-align: center; line-height: 1.4; }
+.roast-vote-btn .rv-label { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; opacity: 0.7; }
+.rv-normies { border: 1.5px solid var(--normie-mid); color: var(--normie); background: transparent; }
+.rv-normies:hover, .rv-normies.chosen { background: var(--normie-light); }
+.rv-brainrot { border: 1.5px solid var(--brainrot-mid); color: var(--brainrot); background: transparent; }
+.rv-brainrot:hover, .rv-brainrot.chosen { background: var(--brainrot-light); }
+.roast-bar-labels { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 7px; }
+.roast-bar-track { height: 5px; border-radius: 3px; background: var(--brainrot-mid); overflow: hidden; border: 0.5px solid var(--border); }
+.roast-bar-fill { height: 100%; background: var(--normie-mid); transition: width 0.6s ease; }
+.roast-vote-confirm { font-size: 11px; color: var(--text-muted); margin-top: 12px; display: none; font-style: italic; }
+
 </style>
 </head>
 <body>
@@ -207,6 +283,7 @@
       <button class="tab active" onclick="switchTab('debate')">Debate</button>
       <button class="tab" onclick="switchTab('archive')">Archive</button>
       <button class="tab" onclick="switchTab('leaderboard')">Leaderboard</button>
+      <button class="tab" onclick="switchTab('roast')">Roast</button>
       <button class="tab" id="tab-agent-btn" onclick="switchTab('agent')" style="display:none;">Agent</button>
     </div>
   </header>
@@ -274,6 +351,85 @@
       </div>
     </div>
   </div>
+<!-- ROAST TAB -->
+<div id="tab-roast" class="tab-content">
+  <div id="roast-phase-pick" class="phase active">
+    <div class="rules-row">
+      <div class="rule-item"><div class="rule-dot"></div>Normies vs BRAINROTs, in their own voices</div>
+      <div class="rule-item"><div class="rule-dot"></div>you pick both sides</div>
+      <div class="rule-item"><div class="rule-dot"></div>witty, edgy, PG-13</div>
+      <div class="rule-item"><div class="rule-dot"></div>vote the winner</div>
+    </div>
+
+    <div class="roast-mode-row">
+      <button class="roast-mode-btn active" id="mode-1v1" onclick="setRoastMode(1)">1 v 1</button>
+      <button class="roast-mode-btn" id="mode-team" onclick="setRoastMode(3)">Team (up to 3)</button>
+    </div>
+
+    <div class="roast-picker-grid">
+      <!-- NORMIES side -->
+      <div class="roast-pick-col normies">
+        <div class="roast-pick-title">Team Normies</div>
+        <input class="roast-select" id="normie-token-input" type="text"
+          placeholder="Normie token ID (e.g. 615)" inputmode="numeric">
+        <button class="btn btn-secondary" style="width:100%;font-size:11px;padding:8px" onclick="addNormie()">+ Add Normie</button>
+        <div class="roast-picked-list" id="normie-picked"></div>
+      </div>
+
+      <!-- BRAINROT side -->
+      <div class="roast-pick-col brainrot">
+        <div class="roast-pick-title">Team BRAINROT</div>
+        <select class="roast-select" id="brainrot-select">
+          <option value="">Loading roster…</option>
+        </select>
+        <button class="btn btn-secondary" style="width:100%;font-size:11px;padding:8px" onclick="addBrainrot()">+ Add BRAINROT</button>
+        <div class="roast-picked-list" id="brainrot-picked"></div>
+      </div>
+    </div>
+
+    <label class="field-label" for="roast-topic-input">Optional theme (leave blank for open roast)</label>
+    <textarea class="topic-input" id="roast-topic-input" rows="2"
+      placeholder="e.g. whose ecosystem has better taste"></textarea>
+
+    <button class="btn btn-primary" onclick="startRoast()">Start the Roast ↗</button>
+  </div>
+
+  <div id="roast-phase-loading" class="phase">
+    <div class="loading-wrap">
+      <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <div class="loading-msg" id="roast-loading-msg">Waking the fighters…</div>
+    </div>
+  </div>
+
+  <div id="roast-phase-battle" class="phase">
+    <div class="roast-clash" id="roast-clash"></div>
+    <div class="roast-thread" id="roast-thread"></div>
+    <div class="roast-vote-card" id="roast-vote-card" style="display:none;">
+      <div class="roast-vote-heading">Who won?</div>
+      <div class="roast-vote-sub">One vote. No wallet. Pick the side that cooked hardest.</div>
+      <div class="roast-vote-grid">
+        <div class="roast-vote-btn rv-normies" id="rv-btn-normies" onclick="castRoastVote('normies')">
+          <span class="rv-label">Normies won</span>
+          <span id="rv-normies-team">Normies</span>
+        </div>
+        <div class="roast-vote-btn rv-brainrot" id="rv-btn-brainrot" onclick="castRoastVote('brainrot')">
+          <span class="rv-label">BRAINROT won</span>
+          <span id="rv-brainrot-team">BRAINROT</span>
+        </div>
+      </div>
+      <div class="roast-bar-labels">
+        <span style="color:var(--normie)" id="roast-bar-n-label">0% Normies</span>
+        <span style="color:var(--brainrot)" id="roast-bar-b-label">0% BRAINROT</span>
+      </div>
+      <div class="roast-bar-track"><div class="roast-bar-fill" id="roast-bar-fill" style="width:50%"></div></div>
+      <div class="roast-vote-confirm" id="roast-vote-confirm">Signal received. The roast is recorded.</div>
+    </div>
+    <div class="action-row">
+      <button class="btn btn-secondary" onclick="resetRoast()">New roast</button>
+      <button class="btn btn-primary" onclick="shareRoast()">Share this roast ↗</button>
+    </div>
+  </div>
+</div>
 
   <!-- ARCHIVE TAB -->
   <div id="tab-archive" class="tab-content">
@@ -868,7 +1024,289 @@
     showPhase('debate');
     window.scrollTo(0, 0);
   }
+const ROAST_API = '/api/roast';
 
+  let roastState = {
+    id: null,
+    mode: 1,                 // 1 = 1v1, 3 = team
+    normies: [],             // [{ tokenId, name }]
+    brainrots: [],           // [{ id, name, kind }]
+    topic: '',
+    results: [],
+    votes: { normies: 0, brainrot: 0 },
+    voted: false,
+    rosterLoaded: false,
+    brainrotRoster: []
+  };
+
+  // Extend switchTab: load the roster when the roast tab opens.
+  // (If your switchTab already exists, just add the roast line inside it;
+  //  this wrapper is safe if you paste it AFTER the original definition.)
+  const _origSwitchTab = switchTab;
+  switchTab = function (name) {
+    _origSwitchTab(name);
+    if (name === 'roast' && !roastState.rosterLoaded) loadRoastRoster();
+  };
+
+  function setRoastMode(n) {
+    roastState.mode = n;
+    document.getElementById('mode-1v1').classList.toggle('active', n === 1);
+    document.getElementById('mode-team').classList.toggle('active', n === 3);
+    // Trim selections down if switching to 1v1
+    if (n === 1) {
+      roastState.normies = roastState.normies.slice(0, 1);
+      roastState.brainrots = roastState.brainrots.slice(0, 1);
+      renderPicked();
+    }
+  }
+
+  async function loadRoastRoster() {
+    try {
+      const r = await fetch(ROAST_API, { method: 'GET' });
+      const data = await r.json();
+      const judges = data.judges || [];
+      const lawyers = data.lawyers || [];
+      roastState.brainrotRoster = [...lawyers, ...judges];
+      const sel = document.getElementById('brainrot-select');
+      let html = '<option value="">Choose a judge or lawyer…</option>';
+      if (lawyers.length) {
+        html += '<optgroup label="Lawyers">';
+        lawyers.forEach(l => {
+          html += `<option value="${l.id}|lawyer">${l.name} — ${l.archetype}${l.role ? ' (' + l.role + ')' : ''}</option>`;
+        });
+        html += '</optgroup>';
+      }
+      if (judges.length) {
+        html += '<optgroup label="Judges">';
+        judges.forEach(j => {
+          html += `<option value="${j.id}|judge">${j.name} — ${j.archetype}</option>`;
+        });
+        html += '</optgroup>';
+      }
+      sel.innerHTML = html;
+      roastState.rosterLoaded = true;
+    } catch (e) {
+      document.getElementById('brainrot-select').innerHTML = '<option value="">Could not load roster</option>';
+    }
+  }
+
+  function addNormie() {
+    const input = document.getElementById('normie-token-input');
+    const tokenId = input.value.trim().replace(/[^0-9]/g, '');
+    if (!tokenId) return;
+    const cap = roastState.mode;
+    if (roastState.normies.length >= cap) { alert('Max ' + cap + ' Normie' + (cap > 1 ? 's' : '') + ' for this mode.'); return; }
+    if (roastState.normies.find(n => n.tokenId === tokenId)) { input.value = ''; return; }
+    roastState.normies.push({ tokenId, name: 'Normie #' + tokenId });
+    input.value = '';
+    renderPicked();
+  }
+
+  function addBrainrot() {
+    const sel = document.getElementById('brainrot-select');
+    const val = sel.value;
+    if (!val) return;
+    const [id, kind] = val.split('|');
+    const cap = roastState.mode;
+    if (roastState.brainrots.length >= cap) { alert('Max ' + cap + ' for this mode.'); return; }
+    if (roastState.brainrots.find(b => b.id === id)) return;
+    const meta = roastState.brainrotRoster.find(b => b.id === id) || {};
+    roastState.brainrots.push({ id, kind, name: meta.name || id });
+    renderPicked();
+  }
+
+  function removeNormie(tokenId) {
+    roastState.normies = roastState.normies.filter(n => n.tokenId !== tokenId);
+    renderPicked();
+  }
+  function removeBrainrot(id) {
+    roastState.brainrots = roastState.brainrots.filter(b => b.id !== id);
+    renderPicked();
+  }
+
+  function renderPicked() {
+    document.getElementById('normie-picked').innerHTML = roastState.normies.map(n =>
+      `<div class="roast-picked-chip"><span>${n.name}</span><span class="rm" onclick="removeNormie('${n.tokenId}')">×</span></div>`
+    ).join('');
+    document.getElementById('brainrot-picked').innerHTML = roastState.brainrots.map(b =>
+      `<div class="roast-picked-chip"><span>${b.name}</span><span class="rm" onclick="removeBrainrot('${b.id}')">×</span></div>`
+    ).join('');
+  }
+
+  function showRoastPhase(id) {
+    document.querySelectorAll('#tab-roast .phase').forEach(p => p.classList.remove('active'));
+    document.getElementById('roast-phase-' + id).classList.add('active');
+  }
+
+  async function startRoast() {
+    if (roastState.normies.length === 0 || roastState.brainrots.length === 0) {
+      alert('Pick at least one fighter for each side.');
+      return;
+    }
+    roastState.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    roastState.topic = document.getElementById('roast-topic-input').value.trim();
+    roastState.results = [];
+    roastState.votes = { normies: 0, brainrot: 0 };
+    roastState.voted = false;
+    roastState.timestamp = new Date().toISOString();
+
+    showRoastPhase('loading');
+    document.getElementById('roast-loading-msg').textContent = 'Waking the fighters…';
+
+    try {
+      const rounds = Math.max(roastState.normies.length, roastState.brainrots.length);
+      const resp = await fetch(ROAST_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          generateRoast: {
+            normies: roastState.normies.map(n => ({ tokenId: n.tokenId })),
+            brainrots: roastState.brainrots.map(b => ({ id: b.id, kind: b.kind })),
+            topic: roastState.topic,
+            rounds: rounds
+          }
+        })
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'Roast generation failed');
+      roastState.results = data.results || [];
+
+      renderClash();
+      const thread = document.getElementById('roast-thread');
+      thread.innerHTML = '';
+      showRoastPhase('battle');
+
+      for (let i = 0; i < roastState.results.length; i++) {
+        appendBurn(roastState.results[i]);
+        await new Promise(r => setTimeout(r, 400));
+      }
+
+      await saveRoast();
+      openRoastVote();
+    } catch (err) {
+      document.getElementById('roast-loading-msg').textContent = 'Something went wrong — ' + err.message;
+    }
+  }
+
+  function renderClash() {
+    const nNames = roastState.normies.map(n => n.name).join(', ');
+    const bNames = roastState.brainrots.map(b => b.name).join(', ');
+    document.getElementById('roast-clash').innerHTML = `
+      <div class="roast-side normies">
+        <div class="roast-side-label">Normies</div>
+        <div class="roast-side-fighters">${nNames}</div>
+      </div>
+      <div class="roast-vs">vs</div>
+      <div class="roast-side brainrot">
+        <div class="roast-side-label">BRAINROT</div>
+        <div class="roast-side-fighters">${bNames}</div>
+      </div>`;
+    document.getElementById('rv-normies-team').textContent = nNames;
+    document.getElementById('rv-brainrot-team').textContent = bNames;
+  }
+
+  function appendBurn(burn) {
+    const thread = document.getElementById('roast-thread');
+    const isNormie = burn.team === 'normies';
+    const imgSrc = isNormie
+      ? `${NORMIES_API}/agents/image/${burn.fighter}`
+      : `https://cpi.brainrot.works/img/${burn.fighter}.png`;
+    const block = document.createElement('div');
+    block.className = 'burn-block ' + burn.team;
+    block.innerHTML = isNormie
+      ? `<div class="burn-thumb"><img src="${imgSrc}" alt="${burn.name}" loading="lazy"></div>
+         <div class="burn-body">
+           <div class="burn-meta"><span class="burn-name">${burn.name}</span><span class="burn-tag normies">Normies</span></div>
+           <div class="burn-text">${burn.text}</div>
+         </div>`
+      : `<div class="burn-body">
+           <div class="burn-meta"><span class="burn-tag brainrot">BRAINROT</span><span class="burn-name">${burn.name}</span></div>
+           <div class="burn-text">${burn.text}</div>
+         </div>
+         <div class="burn-thumb"><img src="${imgSrc}" alt="${burn.name}" loading="lazy"></div>`;
+    thread.appendChild(block);
+    block.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  async function saveRoast() {
+    try {
+      await fetch(ROAST_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          saveRoast: {
+            id: roastState.id,
+            topic: roastState.topic,
+            normies: roastState.normies,
+            brainrots: roastState.brainrots,
+            results: roastState.results,
+            timestamp: roastState.timestamp
+          }
+        })
+      });
+    } catch (e) { console.error('Save roast failed', e); }
+  }
+
+  function openRoastVote() {
+    const card = document.getElementById('roast-vote-card');
+    card.style.display = 'block';
+    const already = localStorage.getItem('roastvoted:' + roastState.id);
+    if (already) {
+      roastState.voted = true;
+      document.getElementById('rv-btn-' + already).classList.add('chosen');
+      document.getElementById('roast-vote-confirm').style.display = 'block';
+      document.getElementById('roast-vote-confirm').textContent = 'You already voted on this roast.';
+    }
+    updateRoastBar();
+  }
+
+  async function castRoastVote(side) {
+    if (roastState.voted || !roastState.id) return;
+    const key = 'roastvoted:' + roastState.id;
+    if (localStorage.getItem(key)) return;
+    roastState.voted = true;
+    localStorage.setItem(key, side);
+    document.getElementById('rv-btn-' + side).classList.add('chosen');
+    document.getElementById('roast-vote-confirm').style.display = 'block';
+    try {
+      const updated = await fetch('/api/roastvotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: roastState.id, side })
+      }).then(r => r.json());
+      roastState.votes = updated;
+    } catch (e) {
+      roastState.votes[side]++;
+    }
+    updateRoastBar();
+  }
+
+  function updateRoastBar() {
+    const total = roastState.votes.normies + roastState.votes.brainrot;
+    const nPct = total ? Math.round((roastState.votes.normies / total) * 100) : 50;
+    document.getElementById('roast-bar-fill').style.width = nPct + '%';
+    document.getElementById('roast-bar-n-label').textContent = nPct + '% Normies (' + roastState.votes.normies + ')';
+    document.getElementById('roast-bar-b-label').textContent = (100 - nPct) + '% BRAINROT (' + roastState.votes.brainrot + ')';
+  }
+
+  function resetRoast() {
+    roastState.normies = [];
+    roastState.brainrots = [];
+    roastState.results = [];
+    roastState.id = null;
+    roastState.voted = false;
+    document.getElementById('roast-topic-input').value = '';
+    renderPicked();
+    showRoastPhase('pick');
+  }
+
+  function shareRoast() {
+    const nNames = roastState.normies.map(n => n.name).join(', ');
+    const bNames = roastState.brainrots.map(b => b.name).join(', ');
+    const text = `The Roast: ${nNames} (Normies) vs ${bNames} (BRAINROT)\n\nTwo ecosystems. One roast. Vote the winner.\n\nhttps://normies-debate-society.vercel.app`;
+    if (navigator.share) { navigator.share({ title: 'Normies vs BRAINROT Roast', text }); }
+    else { navigator.clipboard.writeText(text).then(() => alert('Copied to clipboard.')); }
+  }
 </script>
 </body>
 </html>
